@@ -30,7 +30,7 @@ def main() -> None:
 
     # Support cloud platforms (Render / Koyeb / HF Spaces) that inject $PORT
     cloud_port = os.getenv("PORT", "").strip()
-    api_host = os.getenv("CENTRAL_API_HOST", "0.0.0.0" if cloud_port else "127.0.0.1")
+    api_host = "0.0.0.0" if cloud_port else os.getenv("CENTRAL_API_HOST", "127.0.0.1")
     api_port = cloud_port or os.getenv("CENTRAL_API_PORT", "8000")
 
     # Ensure bots connect to the local FastAPI instance on the active port
