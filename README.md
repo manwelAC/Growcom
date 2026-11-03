@@ -1,16 +1,16 @@
-<div align="center">
+<h1 align="center">🌱 Growcom Events by Manwel</h1>
+<h3 align="center">The Ultimate All-in-One Growtopia Utility, Automation & Encyclopedia Bot</h3>
 
-# 🌱 Growcom Events by Manwel
-### **The Ultimate All-in-One Growtopia Utility, Automation & Encyclopedia Bot**
+<p align="center">
+  <img src="https://img.shields.io/badge/items.dat-v27%20(16%2C490%20Items)-2ecc71?style=for-the-badge&logo=databricks&logoColor=white" alt="items.dat v27" />
+  <img src="https://img.shields.io/badge/Discord.py-2.7+-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord.py" />
+  <img src="https://img.shields.io/badge/FastAPI-Central%20Data%20Engine-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/Powered%20By-Growcom%20Events%20by%20Manwel-f1c40f?style=for-the-badge" alt="Growcom Events by Manwel" />
+</p>
 
-[![Growtopia items.dat](https://img.shields.io/badge/items.dat-v27%20(16%2C490%20Items)-2ecc71?style=for-the-badge&logo=databricks&logoColor=white)](#)
-[![Discord.py](https://img.shields.io/badge/Discord.py-2.7+-5865F2?style=for-the-badge&logo=discord&logoColor=white)](#)
-[![FastAPI](https://img.shields.io/badge/FastAPI-Central%20Data%20Engine-009688?style=for-the-badge&logo=fastapi&logoColor=white)](#)
-[![Built by Manwel](https://img.shields.io/badge/Powered%20By-Growcom%20Events%20by%20Manwel-f1c40f?style=for-the-badge)](#)
-
-*Purpose-built by **Manwel** for the **Growcom** Growtopia Discord Community — combining real-time `items.dat` v27 binary parsing, `.rttex` pixel-art sprite extraction, automated 1:00 PM Daily Reset boards, and 11 categorized player tools.*
-
-</div>
+<p align="center">
+  <i>Purpose-built by <b>Manwel</b> for the <b>Growcom</b> Growtopia Discord Community — combining real-time <code>items.dat</code> v27 binary parsing, <code>.rttex</code> pixel-art sprite extraction, automated 1:00 PM Daily Reset boards, and 11 categorized player tools.</i>
+</p>
 
 ---
 
@@ -19,18 +19,18 @@
 Every tool in **Growcom Events by Manwel** lives in its own isolated module inside [`bots/event-bot/src/cogs/`](bots/event-bot/src/cogs/), features a **2-minute per-user anti-spam cooldown**, and can be locked to its own dedicated Discord channel by Server Admins:
 
 | # | Category & Module | Player Command | Admin Channel Lock | What It Does |
-| :-: | :--- | :--- | :--- | :--- |
-| **1** | 🌅 **Daily Reset & Auto-DQ**<br>`cogs/daily_events.py` | `/daily` | `/set_daily_channel`<br>`/set_dq_feed_channel`<br>`/set_daily` | Auto-publishes the **1:00 PM (`00:00 GT`) Daily Reset Board** (Role Day rotation, Daily Challenge, & Crazy Jim's Daily Quest) and auto-reads `#dq-feed`. |
-| **2** | 🌱 **Harvest Timer & Calculator**<br>`cogs/harvest_calculator.py` | `/harvest` | `/set_harvest_channel` | Interactive modal asking when you planted & how many trees; calculates exact **Ready Time**, **XP**, **Gems**, and **auto-pings you** when ready! |
-| **3** | 📦 **Item Stats Encyclopedia**<br>`cogs/item_lookup.py` | `/item` | `/set_item_channel` | Instant lookup across all **16,490 Growtopia items**: Item ID, Rarity, Grow Time, Fist/Pickaxe Hits, Gems Drop, Chi, & `.rttex` Sprite. |
-| **4** | 🧬 **Splicing & Recipe Lookup**<br>`cogs/recipe_lookup.py` | `/recipe` | `/set_recipe_channel` | Shows exact **Seed Splicing (`Seed A + Seed B`)** and **Chemical Combiner / Forge / Cooking** crafting formulas. |
-| **5** | 💰 **Trade & Rate Calculator**<br>`cogs/rate_calculator.py` | `/rate` | `/set_rate_channel` | Calculates exact **BGL + DL + WL** breakdowns, `200`-item stack counts, and nearest whole-lock trades (`10/1 WL`, `200/1 DL`, `5 WL each`). |
-| **6** | 🩺 **Surgery & Malady Assistant**<br>`cogs/surgery_helper.py` | `/surgery` | `/set_surgery_channel` | Complete step-by-step cheat-sheet for all **27 Standard Illnesses & Vile Vial Maladies** (`Scalpel` count, tool order, & emergency priority buttons). |
-| **7** | ⚖️ **Farmable Comparator**<br>`cogs/farm_compare.py` | `/compare_farm` | `/set_compare_channel` | Side-by-side comparison of any 2 farmables (`Rarity`, `Grow Time`, `Pickaxe Punches`, `Gems`, `XP`, & Head-to-Head Verdict). |
-| **8** | 🌳 **Recursive Mass Planner**<br>`cogs/mass_planner.py` | `/mass` | `/set_mass_channel` | Recursively traces multi-tier seed splicing trees down to base seeds, calculating exact seed shopping lists & sequential grow times. |
-| **9** | 🍳 **Cooking Oven Assistant**<br>`cogs/cooking_helper.py` | `/cook` | `/set_cook_channel` | Exact **second-by-second Home Oven timelines** (`00s ➔ 16s ➔ 30s ➔ 50s`), heat settings, multi-oven shopping lists, & live countdown button. |
-| **10** | 🦸 **Crimefighter Counter Guide**<br>`cogs/crime_helper.py` | `/crime` | `/set_crime_channel` | Recommended **5-Card Deck**, elemental immunities, and turn-by-turn counter rotations for every Supervillain (*Dr. Destructo*, *Dragonhand*, etc.). |
-| **11** | 🎣 **Fishing & Star Captain Guides**<br>`cogs/fishing_guide.py`<br>`cogs/star_captain.py` | `/fish`<br>`/startrek` | `/set_fish_channel`<br>`/set_startrek_channel` | Complete **Fishing Lure & Fish Port Training** guide (`/fish`) and **Starship Bridge Station & Sector** cheat-sheet (`/startrek`). |
+| :---: | :--- | :--- | :--- | :--- |
+| **1** | 🌅 **Daily Reset & Auto-DQ** (`cogs/daily_events.py`) | `/daily` | `/set_daily_channel` • `/set_dq_feed_channel` • `/set_daily` | Auto-publishes the **1:00 PM (`00:00 GT`) Daily Reset Board** (Role Day rotation, Daily Challenge, & Crazy Jim's Daily Quest) and auto-reads `#dq-feed`. |
+| **2** | 🌱 **Harvest Timer & Calculator** (`cogs/harvest_calculator.py`) | `/harvest` | `/set_harvest_channel` | Interactive modal asking when you planted & how many trees; calculates exact **Ready Time**, **XP**, **Gems**, and **auto-pings you** when ready! |
+| **3** | 📦 **Item Stats Encyclopedia** (`cogs/item_lookup.py`) | `/item` | `/set_item_channel` | Instant lookup across all **16,490 Growtopia items**: Item ID, Rarity, Grow Time, Fist/Pickaxe Hits, Gems Drop, Chi, & `.rttex` Sprite. |
+| **4** | 🧬 **Splicing & Recipe Lookup** (`cogs/recipe_lookup.py`) | `/recipe` | `/set_recipe_channel` | Shows exact **Seed Splicing (`Seed A + Seed B`)** and **Chemical Combiner / Forge / Cooking** crafting formulas. |
+| **5** | 💰 **Trade & Rate Calculator** (`cogs/rate_calculator.py`) | `/rate` | `/set_rate_channel` | Calculates exact **BGL + DL + WL** breakdowns, `200`-item stack counts, and nearest whole-lock trades (`10/1 WL`, `200/1 DL`, `5 WL each`). |
+| **6** | 🩺 **Surgery & Malady Assistant** (`cogs/surgery_helper.py`) | `/surgery` | `/set_surgery_channel` | Complete step-by-step cheat-sheet for all **27 Standard Illnesses & Vile Vial Maladies** (`Scalpel` count, tool order, & emergency priority buttons). |
+| **7** | ⚖️ **Farmable Comparator** (`cogs/farm_compare.py`) | `/compare_farm` | `/set_compare_channel` | Side-by-side comparison of any 2 farmables (`Rarity`, `Grow Time`, `Pickaxe Punches`, `Gems`, `XP`, & Head-to-Head Verdict). |
+| **8** | 🌳 **Recursive Mass Planner** (`cogs/mass_planner.py`) | `/mass` | `/set_mass_channel` | Recursively traces multi-tier seed splicing trees down to base seeds, calculating exact seed shopping lists & sequential grow times. |
+| **9** | 🍳 **Cooking Oven Assistant** (`cogs/cooking_helper.py`) | `/cook` | `/set_cook_channel` | Exact **second-by-second Home Oven timelines** (`00s ➔ 16s ➔ 30s ➔ 50s`), heat settings, multi-oven shopping lists, & live countdown button. |
+| **10** | 🦸 **Crimefighter Counter Guide** (`cogs/crime_helper.py`) | `/crime` | `/set_crime_channel` | Recommended **5-Card Deck**, elemental immunities, and turn-by-turn counter rotations for every Supervillain (*Dr. Destructo*, *Dragonhand*, etc.). |
+| **11** | 🎣 **Fishing & Star Captain Guides** (`cogs/fishing_guide.py` & `cogs/star_captain.py`) | `/fish` • `/startrek` | `/set_fish_channel` • `/set_startrek_channel` | Complete **Fishing Lure & Fish Port Training** guide (`/fish`) and **Starship Bridge Station & Sector** cheat-sheet (`/startrek`). |
 
 ---
 
@@ -53,6 +53,7 @@ flowchart LR
 ```
 
 ### 📂 Repository Structure
+
 ```text
 growcom/
 ├── bots/
@@ -133,8 +134,6 @@ Because `run_growcom.py` runs **both** the FastAPI Central Data API (listening o
 
 ---
 
-<div align="center">
+<p align="center">
   <b>Growcom Events by Manwel</b> • Built with ❤️ for the Growtopia Community
-</div>
-#   G r o w c o m  
- 
+</p>
