@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: growcom-events-by-manwel
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -u run_growcom.py
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: EVENT_BOT_TOKEN
+        sync: false
+      - key: DEV_GUILD_ID
+        value: "1567168949584658534"
+      - key: DAILY_EVENTS_CHANNEL_ID
+        value: "1567193422157054093"
+      - key: EVENT_TIMEZONE
+        value: "Asia/Manila"

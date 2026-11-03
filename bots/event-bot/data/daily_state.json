@@ -1,0 +1,19 @@
+{
+  "configured_channel_id": 1567193422157054093,
+  "last_gt_date": "2026-11-03",
+  "last_message_id": 1567195313087848449,
+  "last_channel_id": 1567193422157054093,
+  "dq_populated": true,
+  "dq_feed_channel_id": 1567206278697062440,
+  "harvest_channel_id": 1567214340291956857,
+  "item_channel_id": 1567216131616411738,
+  "recipe_channel_id": 1567216421593944084,
+  "rate_channel_id": 1567220472859594853,
+  "surgery_channel_id": 1567231718627483688,
+  "compare_channel_id": 1567233119088803941,
+  "mass_channel_id": 1567236019282120836,
+  "cook_channel_id": 1567238220972826654,
+  "crime_channel_id": 1567240061320171713,
+  "fish_channel_id": 1567240147576291389,
+  "startrek_channel_id": 1567240655774941264
+}

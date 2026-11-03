@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Secret Environment Variables (NEVER commit .env!)
+.env
+.env.local
+
+# Heavy local texture dumps (keep .gitkeep, while allowing items.dat & channel state JSON)
+services/central-data-api/data/textures/*
+!services/central-data-api/data/textures/.gitkeep
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
