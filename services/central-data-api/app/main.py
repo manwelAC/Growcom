@@ -36,11 +36,12 @@ app.include_router(wiki.router, prefix="/api/v1")
 app.include_router(converter.router, prefix="/api/v1")
 
 
-@app.get("/api/v1/health", tags=["system"])
+@app.api_route("/", methods=["GET", "HEAD"], tags=["system"])
+@app.api_route("/api/v1/health", methods=["GET", "HEAD"], tags=["system"])
 async def health_check() -> dict:
     return {
         "status": "ok",
-        "service": "growcom-central-data-api",
+        "service": "Growcom Events by Manwel",
         "items_dat_version": items_index.version,
         "items_loaded": len(items_index.items_by_id),
         "using_fallback_catalog": items_index.using_fallback,
