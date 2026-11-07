@@ -1,8 +1,11 @@
 """
-Growcom Server Rating & Community Feedback System (src/cogs/server_feedback.py)
-- Creates #⭐server-ratings inside '🤳Growcom Chats' where members submit reviews via 1-5 Star Buttons or /feedback.
-- Creates a locked channel (#📊total-ratings) and locked sidebar counter (🔒 ⭐ Rating: X.XX/5) at the very end
-  that automatically updates with the live overall score, star distribution bar chart, and total ratings!
+Growcom Feedback Hub — Suggestions, Server Ratings, & Locked Total Ratings Dashboard (src/cogs/server_feedback.py)
+- Creates the '📝 Growcom Feedback Hub' category (hidden from unverified @everyone, unlocked for 'Member').
+- Places all 4 channels inside '📝 Growcom Feedback Hub':
+  1. #💡suggestions — Interactive '💡 Submit a Suggestion' modal button + /suggest command + automatic 👍/👎 voting reactions!
+  2. #⭐server-ratings — Interactive 1-5 Star Rating modal buttons + /feedback command!
+  3. #🔒📊total-ratings — Locked read-only live Total Ratings Dashboard (overall score, 5-star to 1-star bar chart, recent reviews).
+  4. 🔒 ⭐ Rating: X.XX/5 — Locked voice channel sidebar counter at the bottom of the category.
 """
 
 from __future__ import annotations
@@ -25,9 +28,9 @@ from utils.helpers import (
     save_state,
 )
 
-SOCIAL_CATEGORY_ID = 1567168952444915782
 DEFAULT_MEMBER_ROLE_ID = 1568495447067332608
 RATINGS_FILE = PROJECT_ROOT / "bots" / "event-bot" / "data" / "server_ratings.json"
+FEEDBACK_HUB_CATEGORY_NAME = "📝 Growcom Feedback Hub"
 
 
 def _load_ratings() -> list[dict[str, Any]]:
@@ -89,7 +92,6 @@ def _build_total_ratings_dashboard_embed(ratings: list[dict[str, Any]]) -> disco
         full_stars = int(round(avg))
         star_display = "⭐" * full_stars + "☆" * (5 - full_stars) + f" **{avg:.2f} / 5.00**"
 
-    # Build 5-star to 1-star bar chart
     counts = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
     for r in ratings:
         s = max(1, min(5, int(r.get("stars", 5))))
@@ -104,7 +106,6 @@ def _build_total_ratings_dashboard_embed(ratings: list[dict[str, Any]]) -> disco
         label = f"{star_num} ⭐"
         bar_lines.append(f"`{label}` `{bar}` **{c}** ({pct:.0f}%)")
 
-    # Latest 5 reviews preview
     recent_lines = []
     for r in reversed(ratings[-5:]):
         s = max(1, min(5, int(r.get("stars", 5))))
@@ -142,7 +143,7 @@ def _build_total_ratings_dashboard_embed(ratings: list[dict[str, Any]]) -> disco
 
 
 async def sync_total_ratings_channels(guild: discord.Guild | None, ratings: list[dict[str, Any]]) -> None:
-    """Updates the locked #📊total-ratings dashboard embed and the locked sidebar voice counter."""
+    """Updates the locked #🔒📊total-ratings dashboard embed and the locked sidebar voice counter."""
     if not guild:
         return
 
@@ -150,7 +151,7 @@ async def sync_total_ratings_channels(guild: discord.Guild | None, ratings: list
     total = len(ratings)
     avg = round(sum(int(r.get("stars", 5)) for r in ratings) / max(1, total), 2) if total > 0 else 0.0
 
-    # 1. Update #📊total-ratings locked text channel dashboard
+    # 1. Update #🔒📊total-ratings locked text channel dashboard
     total_ch_id = state.get("total_ratings_channel_id")
     total_ch: discord.TextChannel | None = None
     if total_ch_id:
@@ -183,7 +184,7 @@ async def sync_total_ratings_channels(guild: discord.Guild | None, ratings: list
             state["total_ratings_message_id"] = str(new_msg.id)
             save_state(state)
 
-    # 2. Update locked voice channel counter at the very end if present
+    # 2. Update locked voice channel counter
     vc_id = state.get("total_ratings_vc_id")
     if vc_id:
         vc = guild.get_channel(int(vc_id))
@@ -198,6 +199,99 @@ async def sync_total_ratings_channels(guild: discord.Guild | None, ratings: list
                     await vc.edit(name=new_name, reason="Auto-update Growcom Total Ratings counter")
                 except Exception as exc:
                     logger.warning("Could not rename total ratings VC counter: %s", exc)
+
+
+def _build_suggestion_embed(
+    user: discord.User | discord.Member,
+    title: str,
+    details: str,
+    category_tag: str = "Server / Bot Feature",
+) -> discord.Embed:
+    embed = discord.Embed(
+        title=f"💡 Suggestion: {title.strip()}",
+        description=f"### 📝 Details\n> {details.strip()}",
+        color=0x3498DB,
+        timestamp=datetime.now(EVENT_TZ),
+    )
+    embed.add_field(
+        name="👤 Suggested By",
+        value=f"{user.mention} (`{user}`)",
+        inline=True,
+    )
+    embed.add_field(
+        name="🏷️ Category",
+        value=category_tag.strip() or "General",
+        inline=True,
+    )
+    embed.add_field(
+        name="🗳️ Community Vote",
+        value="React with **👍** to upvote or **👎** to downvote this idea!",
+        inline=False,
+    )
+    embed.set_thumbnail(url=user.display_avatar.url)
+    embed.set_footer(text=FOOTER_TEXT)
+    return embed
+
+
+class SuggestionModal(discord.ui.Modal, title="Submit a Growcom Suggestion 💡"):
+    """Pop-up modal when a player clicks '💡 Submit a Suggestion' in #💡suggestions."""
+
+    idea_title = discord.ui.TextInput(
+        label="Suggestion Title",
+        placeholder="e.g. Add a World Lock giveaway channel or new bot command",
+        required=True,
+        min_length=3,
+        max_length=100,
+    )
+    idea_category = discord.ui.TextInput(
+        label="Category (Discord Server, Bot Tool, Event)",
+        placeholder="e.g. Bot Tool / Discord Channel / Community Event",
+        required=False,
+        max_length=60,
+    )
+    idea_details = discord.ui.TextInput(
+        label="Explain Your Idea & How It Helps Growcom",
+        style=discord.TextStyle.paragraph,
+        placeholder="Describe your suggestion in detail so members and Admins can vote on it!",
+        required=True,
+        min_length=5,
+        max_length=1000,
+    )
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        embed = _build_suggestion_embed(
+            user=interaction.user,
+            title=self.idea_title.value,
+            details=self.idea_details.value,
+            category_tag=self.idea_category.value or "General Suggestion",
+        )
+        await interaction.response.send_message(
+            content=f"💡 New suggestion submitted by {interaction.user.mention}!",
+            embed=embed,
+            view=SuggestionButtonView(),
+        )
+        try:
+            msg = await interaction.original_response()
+            await msg.add_reaction("👍")
+            await msg.add_reaction("👎")
+        except Exception as exc:
+            logger.warning("Could not add voting reactions to suggestion: %s", exc)
+
+
+class SuggestionButtonView(discord.ui.View):
+    """Persistent button in #💡suggestions to open the Suggestion Modal."""
+
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+
+    @discord.ui.button(
+        label="Submit a Suggestion",
+        emoji="💡",
+        style=discord.ButtonStyle.primary,
+        custom_id="growcom:submit_suggestion",
+    )
+    async def submit_suggestion_btn(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await interaction.response.send_modal(SuggestionModal())
 
 
 def _build_review_embed(
@@ -349,7 +443,7 @@ class ServerRatingView(discord.ui.View):
 
 
 class ServerFeedbackCog(commands.Cog):
-    """Manages #⭐server-ratings, locked #📊total-ratings, and /feedback command."""
+    """Manages '📝 Growcom Feedback Hub' (#💡suggestions, #⭐server-ratings, #🔒📊total-ratings, and locked VC counter)."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -357,35 +451,17 @@ class ServerFeedbackCog(commands.Cog):
 
     async def cog_load(self) -> None:
         self.bot.add_view(ServerRatingView())
+        self.bot.add_view(SuggestionButtonView())
 
-    async def provision_rating_channel(self, guild: discord.Guild) -> tuple[discord.TextChannel, discord.TextChannel, discord.VoiceChannel]:
+    async def provision_feedback_hub(
+        self, guild: discord.Guild
+    ) -> tuple[discord.CategoryChannel, discord.TextChannel, discord.TextChannel, discord.TextChannel, discord.VoiceChannel]:
         state = load_state()
         everyone_role = guild.default_role
         bot_member = guild.me
 
         member_role_id = int(state.get("member_role_id", DEFAULT_MEMBER_ROLE_ID))
         member_role = guild.get_role(member_role_id)
-
-        social_cat: discord.CategoryChannel | None = guild.get_channel(SOCIAL_CATEGORY_ID)  # type: ignore[assignment]
-        if not isinstance(social_cat, discord.CategoryChannel):
-            for cat in guild.categories:
-                if "chat" in cat.name.lower() or "social" in cat.name.lower():
-                    social_cat = cat
-                    break
-
-        # 1. #⭐server-ratings (interactive channel where members submit ratings)
-        rating_ch: discord.TextChannel | None = None
-        saved_id = state.get("feedback_channel_id")
-        if saved_id:
-            ch = guild.get_channel(int(saved_id))
-            if isinstance(ch, discord.TextChannel):
-                rating_ch = ch
-
-        if not rating_ch:
-            for ch in guild.text_channels:
-                if "server-rating" in ch.name.lower() or "server-feedback" in ch.name.lower():
-                    rating_ch = ch
-                    break
 
         open_overwrites: dict[discord.Role | discord.Member, discord.PermissionOverwrite] = {
             everyone_role: discord.PermissionOverwrite(view_channel=False),
@@ -402,14 +478,100 @@ class ServerFeedbackCog(commands.Cog):
                 view_channel=True,
                 send_messages=True,
                 embed_links=True,
+                add_reactions=True,
                 read_message_history=True,
                 manage_messages=True,
             )
 
+        # 1. Locate or create '📝 Growcom Feedback Hub' category
+        feedback_cat: discord.CategoryChannel | None = None
+        saved_cat_id = state.get("feedback_hub_category_id")
+        if saved_cat_id:
+            cat = guild.get_channel(int(saved_cat_id))
+            if isinstance(cat, discord.CategoryChannel):
+                feedback_cat = cat
+
+        if not feedback_cat:
+            for cat in guild.categories:
+                if "feedback hub" in cat.name.lower():
+                    feedback_cat = cat
+                    break
+
+        if not feedback_cat:
+            feedback_cat = await guild.create_category(
+                name=FEEDBACK_HUB_CATEGORY_NAME,
+                overwrites=open_overwrites,
+                reason="Create Growcom Feedback Hub category",
+            )
+        else:
+            await feedback_cat.edit(overwrites=open_overwrites, reason="Sync Growcom Feedback Hub permissions")
+
+        state["feedback_hub_category_id"] = str(feedback_cat.id)
+
+        # 2. Create or move #💡suggestions inside '📝 Growcom Feedback Hub'
+        suggest_ch: discord.TextChannel | None = None
+        saved_suggest_id = state.get("suggestions_channel_id")
+        if saved_suggest_id:
+            ch = guild.get_channel(int(saved_suggest_id))
+            if isinstance(ch, discord.TextChannel):
+                suggest_ch = ch
+
+        if not suggest_ch:
+            for ch in guild.text_channels:
+                if "suggestion" in ch.name.lower():
+                    suggest_ch = ch
+                    break
+
+        if not suggest_ch:
+            suggest_ch = await guild.create_text_channel(
+                name="💡suggestions",
+                category=feedback_cat,
+                topic="Share your ideas for Growcom! Click '💡 Submit a Suggestion' or type /suggest, and vote with 👍 / 👎!",
+                overwrites=open_overwrites,
+                reason="Growcom Suggestions channel setup",
+            )
+            suggest_welcome = discord.Embed(
+                title="💡 Growcom Suggestions & Feature Ideas",
+                description=(
+                    "Have an idea for a new **Growcom** channel, community event, or Growtopia bot feature? Share it here!\n\n"
+                    "### 🚀 How to Submit an Idea\n"
+                    "- **Option 1 (Button):** Click **`💡 Submit a Suggestion`** below to open the suggestion form.\n"
+                    "- **Option 2 (Command):** Type **`/suggest`** in this channel.\n\n"
+                    "### 🗳️ Community Voting\n"
+                    "- Every suggestion automatically gets **👍 (Upvote)** and **👎 (Downvote)** reactions so everyone can vote on the best ideas!"
+                ),
+                color=0x3498DB,
+                timestamp=datetime.now(EVENT_TZ),
+            )
+            suggest_welcome.set_footer(text=FOOTER_TEXT)
+            await suggest_ch.send(embed=suggest_welcome, view=SuggestionButtonView())
+        else:
+            await suggest_ch.edit(
+                category=feedback_cat,
+                overwrites=open_overwrites,
+                reason="Move #💡suggestions into Growcom Feedback Hub",
+            )
+
+        state["suggestions_channel_id"] = str(suggest_ch.id)
+
+        # 3. Create or move #⭐server-ratings inside '📝 Growcom Feedback Hub'
+        rating_ch: discord.TextChannel | None = None
+        saved_id = state.get("feedback_channel_id")
+        if saved_id:
+            ch = guild.get_channel(int(saved_id))
+            if isinstance(ch, discord.TextChannel):
+                rating_ch = ch
+
+        if not rating_ch:
+            for ch in guild.text_channels:
+                if "server-rating" in ch.name.lower() or "server-feedback" in ch.name.lower():
+                    rating_ch = ch
+                    break
+
         if not rating_ch:
             rating_ch = await guild.create_text_channel(
                 name="⭐server-ratings",
-                category=social_cat,
+                category=feedback_cat,
                 topic="Rate the Growcom Discord Server & Bot! Click a Star button below or run /feedback to share your review.",
                 overwrites=open_overwrites,
                 reason="Growcom Server Ratings & Feedback channel setup",
@@ -429,11 +591,15 @@ class ServerFeedbackCog(commands.Cog):
             welcome_embed.set_footer(text=FOOTER_TEXT)
             await rating_ch.send(embed=welcome_embed, view=ServerRatingView())
         else:
-            await rating_ch.edit(overwrites=open_overwrites, reason="Sync #⭐server-ratings permissions")
+            await rating_ch.edit(
+                category=feedback_cat,
+                overwrites=open_overwrites,
+                reason="Move #⭐server-ratings into Growcom Feedback Hub",
+            )
 
         state["feedback_channel_id"] = str(rating_ch.id)
 
-        # 2. Place the locked Total Ratings channels outside of any category (standalone)
+        # 4. Move/create locked #🔒📊total-ratings inside '📝 Growcom Feedback Hub'
         locked_text_overwrites: dict[discord.Role | discord.Member, discord.PermissionOverwrite] = {
             everyone_role: discord.PermissionOverwrite(
                 view_channel=False,
@@ -475,23 +641,23 @@ class ServerFeedbackCog(commands.Cog):
         if not total_ch:
             total_ch = await guild.create_text_channel(
                 name="🔒📊total-ratings",
-                category=None,
+                category=feedback_cat,
                 topic="🔒 Locked Official Growcom Total Ratings Dashboard — Automatically updated whenever a member rates in #⭐server-ratings!",
                 overwrites=locked_text_overwrites,
-                reason="Locked Total Ratings dashboard channel outside any category",
+                reason="Locked Total Ratings dashboard channel in Growcom Feedback Hub",
             )
             dash_msg = await total_ch.send(embed=dash_embed)
             state["total_ratings_message_id"] = str(dash_msg.id)
         else:
             await total_ch.edit(
-                category=None,
+                category=feedback_cat,
                 overwrites=locked_text_overwrites,
-                reason="Ensure #🔒📊total-ratings is locked and outside any category",
+                reason="Move #🔒📊total-ratings into Growcom Feedback Hub",
             )
 
         state["total_ratings_channel_id"] = str(total_ch.id)
 
-        # 3. Also create a Locked Voice Channel Counter standalone outside any category
+        # 5. Move/create Locked Voice Channel Counter inside '📝 Growcom Feedback Hub'
         locked_vc_overwrites: dict[discord.Role | discord.Member, discord.PermissionOverwrite] = {
             everyone_role: discord.PermissionOverwrite(
                 view_channel=False,
@@ -531,22 +697,22 @@ class ServerFeedbackCog(commands.Cog):
         if not total_vc:
             total_vc = await guild.create_voice_channel(
                 name=vc_name,
-                category=None,
+                category=feedback_cat,
                 overwrites=locked_vc_overwrites,
-                reason="Locked Total Ratings sidebar counter outside any category",
+                reason="Locked Total Ratings sidebar counter in Growcom Feedback Hub",
             )
         else:
             await total_vc.edit(
-                category=None,
+                category=feedback_cat,
                 overwrites=locked_vc_overwrites,
-                reason="Sync locked Total Ratings VC counter outside any category",
+                reason="Move locked Total Ratings VC counter into Growcom Feedback Hub",
             )
 
         state["total_ratings_vc_id"] = str(total_vc.id)
         save_state(state)
         await sync_total_ratings_channels(guild, ratings)
         self._provisioned_guilds.add(guild.id)
-        return rating_ch, total_ch, total_vc
+        return feedback_cat, suggest_ch, rating_ch, total_ch, total_vc
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
@@ -555,15 +721,51 @@ class ServerFeedbackCog(commands.Cog):
                 continue
             if guild.me and guild.me.guild_permissions.administrator:
                 try:
-                    _, total_ch, total_vc = await self.provision_rating_channel(guild)
+                    cat, suggest_ch, rating_ch, total_ch, _ = await self.provision_feedback_hub(guild)
                     logger.info(
-                        "Configured #⭐server-ratings + locked %s (%s) in %s",
+                        "Configured %s (%s, %s, %s) in %s",
+                        cat.name,
+                        suggest_ch.name,
+                        rating_ch.name,
                         total_ch.name,
-                        total_vc.name,
                         guild.name,
                     )
                 except Exception as exc:
-                    logger.warning("Could not configure rating channels in %s: %s", guild.name, exc)
+                    logger.warning("Could not configure Growcom Feedback Hub in %s: %s", guild.name, exc)
+
+    @app_commands.command(
+        name="suggest",
+        description="Submit a feature or server suggestion in #💡suggestions for the Growcom community to vote on!",
+    )
+    @app_commands.describe(
+        title="Short title for your suggestion",
+        details="Explain your idea and how it helps the Growcom server or bot",
+        category="What is this suggestion for? (e.g. Bot Tool, Discord Channel, Event)",
+    )
+    async def suggest_cmd(
+        self,
+        interaction: discord.Interaction,
+        title: str,
+        details: str,
+        category: str = "General Suggestion",
+    ) -> None:
+        embed = _build_suggestion_embed(
+            user=interaction.user,
+            title=title,
+            details=details,
+            category_tag=category,
+        )
+        await interaction.response.send_message(
+            content=f"💡 New suggestion submitted by {interaction.user.mention}!",
+            embed=embed,
+            view=SuggestionButtonView(),
+        )
+        try:
+            msg = await interaction.original_response()
+            await msg.add_reaction("👍")
+            await msg.add_reaction("👎")
+        except Exception as exc:
+            logger.warning("Could not add voting reactions to /suggest: %s", exc)
 
     @app_commands.command(
         name="feedback",
@@ -611,6 +813,22 @@ class ServerFeedbackCog(commands.Cog):
             view=ServerRatingView(),
         )
         await sync_total_ratings_channels(interaction.guild, ratings)
+
+    @app_commands.command(
+        name="set_suggestions_channel",
+        description="Admin: Lock /suggest to a specific channel (e.g. #💡suggestions).",
+    )
+    async def set_suggestions_channel(self, interaction: discord.Interaction, channel: discord.TextChannel) -> None:
+        if not is_server_manager(interaction):
+            await interaction.response.send_message("❌ Admin permission required.", ephemeral=True)
+            return
+        state = load_state()
+        state["suggestions_channel_id"] = str(channel.id)
+        save_state(state)
+        await interaction.response.send_message(
+            f"✅ Locked **`/suggest`** to {channel.mention}!",
+            ephemeral=True,
+        )
 
     @app_commands.command(
         name="set_feedback_channel",
