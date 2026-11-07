@@ -41,7 +41,7 @@ ROLE_ROTATION: list[tuple[str, str]] = [
     ("Star Captain", "Supplier Role • +Bonus Star Captain XP & 1x Growtoken on first Role Quest"),
     ("Farmer", "Supplier Role • +Bonus Farmer XP & 1x Growtoken on first Role Quest"),
 ]
-ROLE_ANCHOR_DATE = date(2025, 1, 1)
+ROLE_ANCHOR_DATE = date(2024, 12, 31)
 
 # Growtopia Daily Challenges rotation with point objectives from the Growtopia Wiki
 DAILY_CHALLENGES_ROTATION: list[tuple[str, str]] = [
