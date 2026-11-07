@@ -1,8 +1,8 @@
 """
 Growcom Server Rating & Community Feedback System (src/cogs/server_feedback.py)
-- Creates #⭐server-ratings inside the 'Social' category (unlocked for verified 'Member' role).
-- Provides both interactive 1-5 Star Buttons (opening a Feedback Modal) AND the /feedback slash command.
-- Tracks overall server rating average and displays a '⭐ Leave a Rating' button on every review card!
+- Creates #⭐server-ratings inside '🤳Growcom Chats' where members submit reviews via 1-5 Star Buttons or /feedback.
+- Creates a locked channel (#📊total-ratings) and locked sidebar counter (🔒 ⭐ Rating: X.XX/5) at the very end
+  that automatically updates with the live overall score, star distribution bar chart, and total ratings!
 """
 
 from __future__ import annotations
@@ -44,15 +44,21 @@ def _save_ratings(ratings: list[dict[str, Any]]) -> None:
     RATINGS_FILE.write_text(json.dumps(ratings, indent=2), encoding="utf-8")
 
 
-def _record_and_summarize_rating(user_id: int, username: str, stars: int, comment: str) -> tuple[float, int]:
+def _record_and_summarize_rating(
+    user_id: int,
+    username: str,
+    stars: int,
+    comment: str,
+    favorite_feature: str = "",
+) -> tuple[float, int, list[dict[str, Any]]]:
     ratings = _load_ratings()
-    # Update existing rating from the same user or append a new one
     updated = False
     for entry in ratings:
         if int(entry.get("user_id", 0)) == user_id:
             entry["stars"] = stars
             entry["username"] = username
             entry["comment"] = comment
+            entry["favorite"] = favorite_feature
             entry["timestamp"] = datetime.now(EVENT_TZ).isoformat()
             updated = True
             break
@@ -63,13 +69,135 @@ def _record_and_summarize_rating(user_id: int, username: str, stars: int, commen
                 "username": username,
                 "stars": stars,
                 "comment": comment,
+                "favorite": favorite_feature,
                 "timestamp": datetime.now(EVENT_TZ).isoformat(),
             }
         )
     _save_ratings(ratings)
     total = len(ratings)
     avg = sum(int(r.get("stars", 5)) for r in ratings) / max(1, total)
-    return round(avg, 2), total
+    return round(avg, 2), total, ratings
+
+
+def _build_total_ratings_dashboard_embed(ratings: list[dict[str, Any]]) -> discord.Embed:
+    total = len(ratings)
+    if total == 0:
+        avg = 0.0
+        star_display = "☆☆☆☆☆ (No ratings yet)"
+    else:
+        avg = round(sum(int(r.get("stars", 5)) for r in ratings) / total, 2)
+        full_stars = int(round(avg))
+        star_display = "⭐" * full_stars + "☆" * (5 - full_stars) + f" **{avg:.2f} / 5.00**"
+
+    # Build 5-star to 1-star bar chart
+    counts = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
+    for r in ratings:
+        s = max(1, min(5, int(r.get("stars", 5))))
+        counts[s] += 1
+
+    bar_lines = []
+    for star_num in (5, 4, 3, 2, 1):
+        c = counts[star_num]
+        pct = (c / total * 100.0) if total > 0 else 0.0
+        filled = int(round((pct / 100.0) * 12))
+        bar = "█" * filled + "░" * (12 - filled)
+        label = f"{star_num} ⭐"
+        bar_lines.append(f"`{label}` `{bar}` **{c}** ({pct:.0f}%)")
+
+    # Latest 5 reviews preview
+    recent_lines = []
+    for r in reversed(ratings[-5:]):
+        s = max(1, min(5, int(r.get("stars", 5))))
+        uid = r.get("user_id")
+        uname = r.get("username", "Member")
+        user_ref = f"<@{uid}>" if uid else f"**{uname}**"
+        snippet = (r.get("comment") or "").strip().replace("\n", " ")
+        if len(snippet) > 90:
+            snippet = snippet[:87] + "..."
+        recent_lines.append(f"- {'⭐' * s} by {user_ref}: *\"{snippet}\"*")
+
+    recent_section = (
+        "\n".join(recent_lines)
+        if recent_lines
+        else "*No reviews submitted yet! Head over to `#⭐server-ratings` to be the first!*"
+    )
+
+    embed = discord.Embed(
+        title="📊 Growcom Official Total Ratings & Community Score",
+        description=(
+            "This is the **Official Growcom Total Ratings Dashboard**. It updates automatically every time a member "
+            "submits a review in **#⭐server-ratings**!\n\n"
+            f"### 🏆 Overall Server Rating\n"
+            f"> {star_display}\n"
+            f"> 📈 **Total Verified Reviews:** `{total}`\n\n"
+            f"### 📊 Star Rating Breakdown\n"
+            + "\n".join(bar_lines)
+            + f"\n\n### 💬 Latest Community Reviews\n{recent_section}"
+        ),
+        color=0xF1C40F,
+        timestamp=datetime.now(EVENT_TZ),
+    )
+    embed.set_footer(text=FOOTER_TEXT)
+    return embed
+
+
+async def sync_total_ratings_channels(guild: discord.Guild | None, ratings: list[dict[str, Any]]) -> None:
+    """Updates the locked #📊total-ratings dashboard embed and the locked sidebar voice counter."""
+    if not guild:
+        return
+
+    state = load_state()
+    total = len(ratings)
+    avg = round(sum(int(r.get("stars", 5)) for r in ratings) / max(1, total), 2) if total > 0 else 0.0
+
+    # 1. Update #📊total-ratings locked text channel dashboard
+    total_ch_id = state.get("total_ratings_channel_id")
+    total_ch: discord.TextChannel | None = None
+    if total_ch_id:
+        ch = guild.get_channel(int(total_ch_id))
+        if isinstance(ch, discord.TextChannel):
+            total_ch = ch
+
+    if not total_ch:
+        for ch in guild.text_channels:
+            if "total-rating" in ch.name.lower():
+                total_ch = ch
+                state["total_ratings_channel_id"] = str(ch.id)
+                save_state(state)
+                break
+
+    if total_ch:
+        dash_embed = _build_total_ratings_dashboard_embed(ratings)
+        msg_id = state.get("total_ratings_message_id")
+        dash_msg: discord.Message | None = None
+        if msg_id:
+            try:
+                dash_msg = await total_ch.fetch_message(int(msg_id))
+            except Exception:
+                dash_msg = None
+
+        if dash_msg:
+            await dash_msg.edit(embed=dash_embed)
+        else:
+            new_msg = await total_ch.send(embed=dash_embed)
+            state["total_ratings_message_id"] = str(new_msg.id)
+            save_state(state)
+
+    # 2. Update locked voice channel counter at the very end if present
+    vc_id = state.get("total_ratings_vc_id")
+    if vc_id:
+        vc = guild.get_channel(int(vc_id))
+        if isinstance(vc, discord.VoiceChannel):
+            new_name = (
+                f"⭐ Rating: {avg:.2f}/5 ({total})"
+                if total > 0
+                else "⭐ Rating: N/A (0 Reviews)"
+            )
+            if vc.name != new_name:
+                try:
+                    await vc.edit(name=new_name, reason="Auto-update Growcom Total Ratings counter")
+                except Exception as exc:
+                    logger.warning("Could not rename total ratings VC counter: %s", exc)
 
 
 def _build_review_embed(
@@ -83,11 +211,11 @@ def _build_review_embed(
     stars = max(1, min(5, stars))
     star_bar = "⭐" * stars + "☆" * (5 - stars)
     color_map = {
-        5: 0xF1C40F,  # Gold
-        4: 0x2ECC71,  # Green
-        3: 0x3498DB,  # Blue
-        2: 0xE67E22,  # Orange
-        1: 0xE74C3C,  # Red
+        5: 0xF1C40F,
+        4: 0x2ECC71,
+        3: 0x3498DB,
+        2: 0xE67E22,
+        1: 0xE74C3C,
     }
 
     embed = discord.Embed(
@@ -145,11 +273,12 @@ class ServerFeedbackModal(discord.ui.Modal):
         comment = self.comment_input.value.strip()
         favorite = self.favorite_input.value.strip()
 
-        avg_score, total_reviews = _record_and_summarize_rating(
+        avg_score, total_reviews, ratings = _record_and_summarize_rating(
             user_id=interaction.user.id,
             username=str(interaction.user),
             stars=self.stars,
             comment=comment,
+            favorite_feature=favorite,
         )
         embed = _build_review_embed(
             user=interaction.user,
@@ -164,6 +293,7 @@ class ServerFeedbackModal(discord.ui.Modal):
             embed=embed,
             view=ServerRatingView(),
         )
+        await sync_total_ratings_channels(interaction.guild, ratings)
 
 
 class ServerRatingView(discord.ui.View):
@@ -219,7 +349,7 @@ class ServerRatingView(discord.ui.View):
 
 
 class ServerFeedbackCog(commands.Cog):
-    """Manages #⭐server-ratings channel, persistent star rating buttons, and /feedback command."""
+    """Manages #⭐server-ratings, locked #📊total-ratings, and /feedback command."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -228,7 +358,7 @@ class ServerFeedbackCog(commands.Cog):
     async def cog_load(self) -> None:
         self.bot.add_view(ServerRatingView())
 
-    async def provision_rating_channel(self, guild: discord.Guild) -> discord.TextChannel:
+    async def provision_rating_channel(self, guild: discord.Guild) -> tuple[discord.TextChannel, discord.TextChannel, discord.VoiceChannel]:
         state = load_state()
         everyone_role = guild.default_role
         bot_member = guild.me
@@ -239,10 +369,11 @@ class ServerFeedbackCog(commands.Cog):
         social_cat: discord.CategoryChannel | None = guild.get_channel(SOCIAL_CATEGORY_ID)  # type: ignore[assignment]
         if not isinstance(social_cat, discord.CategoryChannel):
             for cat in guild.categories:
-                if "social" in cat.name.lower():
+                if "chat" in cat.name.lower() or "social" in cat.name.lower():
                     social_cat = cat
                     break
 
+        # 1. #⭐server-ratings (interactive channel where members submit ratings)
         rating_ch: discord.TextChannel | None = None
         saved_id = state.get("feedback_channel_id")
         if saved_id:
@@ -256,18 +387,18 @@ class ServerFeedbackCog(commands.Cog):
                     rating_ch = ch
                     break
 
-        overwrites: dict[discord.Role | discord.Member, discord.PermissionOverwrite] = {
+        open_overwrites: dict[discord.Role | discord.Member, discord.PermissionOverwrite] = {
             everyone_role: discord.PermissionOverwrite(view_channel=False),
         }
         if member_role:
-            overwrites[member_role] = discord.PermissionOverwrite(
+            open_overwrites[member_role] = discord.PermissionOverwrite(
                 view_channel=True,
                 read_message_history=True,
                 send_messages=True,
                 add_reactions=True,
             )
         if bot_member:
-            overwrites[bot_member] = discord.PermissionOverwrite(
+            open_overwrites[bot_member] = discord.PermissionOverwrite(
                 view_channel=True,
                 send_messages=True,
                 embed_links=True,
@@ -280,7 +411,7 @@ class ServerFeedbackCog(commands.Cog):
                 name="⭐server-ratings",
                 category=social_cat,
                 topic="Rate the Growcom Discord Server & Bot! Click a Star button below or run /feedback to share your review.",
-                overwrites=overwrites,
+                overwrites=open_overwrites,
                 reason="Growcom Server Ratings & Feedback channel setup",
             )
             welcome_embed = discord.Embed(
@@ -298,12 +429,133 @@ class ServerFeedbackCog(commands.Cog):
             welcome_embed.set_footer(text=FOOTER_TEXT)
             await rating_ch.send(embed=welcome_embed, view=ServerRatingView())
         else:
-            await rating_ch.edit(overwrites=overwrites, reason="Sync #⭐server-ratings permissions")
+            await rating_ch.edit(overwrites=open_overwrites, reason="Sync #⭐server-ratings permissions")
 
         state["feedback_channel_id"] = str(rating_ch.id)
+
+        # 2. Find or create the bottom-most public category (or place at the very end) for the locked Total Ratings channels!
+        # Let's check the last non-staff category in the server so it sits at the very end of the channel list!
+        bottom_cat: discord.CategoryChannel | None = None
+        non_staff_cats = [
+            c for c in sorted(guild.categories, key=lambda x: x.position)
+            if "staff" not in c.name.lower() and "admin" not in c.name.lower()
+        ]
+        if non_staff_cats:
+            bottom_cat = non_staff_cats[-1]
+
+        locked_text_overwrites: dict[discord.Role | discord.Member, discord.PermissionOverwrite] = {
+            everyone_role: discord.PermissionOverwrite(
+                view_channel=False,
+                send_messages=False,
+            ),
+        }
+        if member_role:
+            locked_text_overwrites[member_role] = discord.PermissionOverwrite(
+                view_channel=True,
+                read_message_history=True,
+                send_messages=False,
+                add_reactions=False,
+            )
+        if bot_member:
+            locked_text_overwrites[bot_member] = discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=True,
+                embed_links=True,
+                read_message_history=True,
+                manage_messages=True,
+            )
+
+        total_ch: discord.TextChannel | None = None
+        saved_total_id = state.get("total_ratings_channel_id")
+        if saved_total_id:
+            ch = guild.get_channel(int(saved_total_id))
+            if isinstance(ch, discord.TextChannel):
+                total_ch = ch
+
+        if not total_ch:
+            for ch in guild.text_channels:
+                if "total-rating" in ch.name.lower():
+                    total_ch = ch
+                    break
+
+        ratings = _load_ratings()
+        dash_embed = _build_total_ratings_dashboard_embed(ratings)
+
+        if not total_ch:
+            total_ch = await guild.create_text_channel(
+                name="🔒📊total-ratings",
+                category=bottom_cat,
+                topic="🔒 Locked Official Growcom Total Ratings Dashboard — Automatically updated whenever a member rates in #⭐server-ratings!",
+                overwrites=locked_text_overwrites,
+                reason="Locked Total Ratings dashboard channel at the very end",
+            )
+            dash_msg = await total_ch.send(embed=dash_embed)
+            state["total_ratings_message_id"] = str(dash_msg.id)
+        else:
+            await total_ch.edit(
+                category=bottom_cat,
+                overwrites=locked_text_overwrites,
+                reason="Ensure #🔒📊total-ratings is locked and at the bottom category",
+            )
+
+        state["total_ratings_channel_id"] = str(total_ch.id)
+
+        # 3. Also create a Locked Voice Channel Counter right below it at the very end so the 🔒 Padlock icon + Total Rating shows in the sidebar!
+        locked_vc_overwrites: dict[discord.Role | discord.Member, discord.PermissionOverwrite] = {
+            everyone_role: discord.PermissionOverwrite(
+                view_channel=False,
+                connect=False,
+            ),
+        }
+        if member_role:
+            locked_vc_overwrites[member_role] = discord.PermissionOverwrite(
+                view_channel=True,
+                connect=False,
+                speak=False,
+            )
+        if bot_member:
+            locked_vc_overwrites[bot_member] = discord.PermissionOverwrite(
+                view_channel=True,
+                connect=True,
+                manage_channels=True,
+            )
+
+        total_vc: discord.VoiceChannel | None = None
+        saved_vc_id = state.get("total_ratings_vc_id")
+        if saved_vc_id:
+            vc = guild.get_channel(int(saved_vc_id))
+            if isinstance(vc, discord.VoiceChannel):
+                total_vc = vc
+
+        if not total_vc:
+            for vc in guild.voice_channels:
+                if "rating:" in vc.name.lower():
+                    total_vc = vc
+                    break
+
+        total_count = len(ratings)
+        avg_val = round(sum(int(r.get("stars", 5)) for r in ratings) / max(1, total_count), 2) if total_count > 0 else 0.0
+        vc_name = f"⭐ Rating: {avg_val:.2f}/5 ({total_count})" if total_count > 0 else "⭐ Rating: N/A (0 Reviews)"
+
+        if not total_vc:
+            total_vc = await guild.create_voice_channel(
+                name=vc_name,
+                category=bottom_cat,
+                overwrites=locked_vc_overwrites,
+                reason="Locked Total Ratings sidebar counter at the very end",
+            )
+        else:
+            await total_vc.edit(
+                category=bottom_cat,
+                overwrites=locked_vc_overwrites,
+                reason="Sync locked Total Ratings VC counter",
+            )
+
+        state["total_ratings_vc_id"] = str(total_vc.id)
         save_state(state)
+        await sync_total_ratings_channels(guild, ratings)
         self._provisioned_guilds.add(guild.id)
-        return rating_ch
+        return rating_ch, total_ch, total_vc
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
@@ -312,10 +564,15 @@ class ServerFeedbackCog(commands.Cog):
                 continue
             if guild.me and guild.me.guild_permissions.administrator:
                 try:
-                    ch = await self.provision_rating_channel(guild)
-                    logger.info("Configured #⭐server-ratings (%s) in %s", ch.id, guild.name)
+                    _, total_ch, total_vc = await self.provision_rating_channel(guild)
+                    logger.info(
+                        "Configured #⭐server-ratings + locked %s (%s) in %s",
+                        total_ch.name,
+                        total_vc.name,
+                        guild.name,
+                    )
                 except Exception as exc:
-                    logger.warning("Could not configure #⭐server-ratings in %s: %s", guild.name, exc)
+                    logger.warning("Could not configure rating channels in %s: %s", guild.name, exc)
 
     @app_commands.command(
         name="feedback",
@@ -342,11 +599,12 @@ class ServerFeedbackCog(commands.Cog):
         comment: str,
         favorite_feature: str = "",
     ) -> None:
-        avg_score, total_reviews = _record_and_summarize_rating(
+        avg_score, total_reviews, ratings = _record_and_summarize_rating(
             user_id=interaction.user.id,
             username=str(interaction.user),
             stars=stars.value,
             comment=comment,
+            favorite_feature=favorite_feature,
         )
         embed = _build_review_embed(
             user=interaction.user,
@@ -361,6 +619,7 @@ class ServerFeedbackCog(commands.Cog):
             embed=embed,
             view=ServerRatingView(),
         )
+        await sync_total_ratings_channels(interaction.guild, ratings)
 
     @app_commands.command(
         name="set_feedback_channel",

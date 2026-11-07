@@ -22,5 +22,8 @@
   "member_role_id": "1568495447067332608",
   "verify_channel_id": "1568496584596136047",
   "verify_message_id": "1568496589478166602",
-  "feedback_channel_id": "1568505161087975454"
+  "feedback_channel_id": "1568505161087975454",
+  "total_ratings_message_id": "1568509406625402951",
+  "total_ratings_channel_id": "1568509404972851291",
+  "total_ratings_vc_id": "1568509408487407797"
 }
