@@ -1,13 +1,15 @@
 """
 Growcom Tools Master Guide Channel (src/cogs/tool_guides.py)
 - Creates read-only #📖tool-guides at the very top of the '🛠️ Growcom Tools' category.
-- Posts comprehensive, categorized guide cards teaching every single Growcom tool command,
-  its parameters, example usage, and clickable channel links.
+- Sends 11 separate message bubbles (1 dedicated card per tool) so each tool guide is
+  clean, easy to read, and never overwhelming!
 """
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
+from typing import Any
 
 import discord
 from discord import app_commands
@@ -25,168 +27,239 @@ from utils.helpers import (
 TOOLS_CATEGORY_ID = 1567213972283719811
 DEFAULT_MEMBER_ROLE_ID = 1568495447067332608
 
-
-def build_tool_guide_embeds() -> list[discord.Embed]:
-    now = datetime.now(EVENT_TZ)
-
-    # Embed 1: Overview, Farming, Economy, & Item Database Tools (Tools 1–6)
-    embed_farming = discord.Embed(
-        title="🛠️ Growcom Tools — Complete Command Guide (Part 1: Farming & Economy)",
-        description=(
-            "Welcome to **Growcom Tools**! Every tool has its own dedicated channel to keep the server organized.\n"
-            "> ⏳ **Cooldown Note:** Each tool command has a **2-minute (`120s`) cooldown per user** to prevent spam.\n\n"
-            "---"
+INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
+    {
+        "title": "🌱 Tool 1/11 — Growth Reminder & Harvest Timer (`/harvest`)",
+        "color": 0x2ECC71,
+        "channel": "<#1567214340291956857>",
+        "purpose": (
+            "Calculates exact tree ready times and sets an automatic **Discord Reminder** that pings you "
+            "(and DMs you) the exact second your trees are ready to harvest!"
         ),
-        color=0x2ECC71,
-        timestamp=now,
-    )
-    embed_farming.add_field(
-        name="1️⃣ 🌱 Growth Reminder & Harvest Timer — `/harvest`",
-        value=(
-            "📍 **Channel:** <#1567214340291956857>\n"
-            "📖 **What it does:** Calculates exact tree ready times and sets an automatic **Discord Reminder** that pings you (and DMs you) the exact second your trees are ready to harvest!\n"
-            "⌨️ **How to use:**\n"
-            "- Type **`/harvest`** *(leave blank to open the interactive pop-up form!)*\n"
-            "- Or type: `/harvest item_name:Pepper Tree planted_at:10:30 PM`\n"
-            "- Supports clock times (`10:30 PM`, `yesterday 8:00 PM`), relative times (`2h 30m ago`), `now`, and **Harvester / Fickle Being** buffs!"
+        "how_to_use": (
+            "1. Go to <#1567214340291956857> and type **`/harvest`**.\n"
+            "2. **Option A (Interactive Modal):** Press Enter with no options to open a clean pop-up box.\n"
+            "3. **Option B (Direct Command):** Fill in `item_name`, `planted_at`, `harvester`, or `fickle`."
         ),
-        inline=False,
-    )
-    embed_farming.add_field(
-        name="2️⃣ 📦 Official Item Lookup — `/item`",
-        value=(
-            "📍 **Channel:** <#1567216131616411738>\n"
-            "📖 **What it does:** Searches all **15,904+ official Growtopia v27 items** for Rarity, Grow Time, Max Gems, Seed colors, and Splicing formulas.\n"
-            "⌨️ **How to use:**\n"
+        "examples": (
+            "- `/harvest` *(Opens the pop-up form)*\n"
+            "- `/harvest item_name:Pepper Tree planted_at:10:30 PM`\n"
+            "- `/harvest item_name:Laser Grid planted_at:2h 30m ago`\n"
+            "- `/harvest item_name:Chandelier planted_at:now harvester:True`"
+        ),
+    },
+    {
+        "title": "📦 Tool 2/11 — Official Item Lookup (`/item`)",
+        "color": 0x3498DB,
+        "channel": "<#1567216131616411738>",
+        "purpose": (
+            "Searches all **15,904+ official Growtopia v27 items** to display Rarity, Grow Time, Max Gems, "
+            "Collision/Block type, and Splicing formula."
+        ),
+        "how_to_use": (
+            "1. Go to <#1567216131616411738> and type **`/item`**.\n"
+            "2. Enter the item name in `name`."
+        ),
+        "examples": (
             "- `/item name:Laser Grid`\n"
+            "- `/item name:Chandelier`\n"
             "- `/item name:Diamond Lock`"
         ),
-        inline=False,
-    )
-    embed_farming.add_field(
-        name="3️⃣ 🧬 Splicing Recipe Guide — `/recipe`",
-        value=(
-            "📍 **Channel:** <#1567216421593944084>\n"
-            "📖 **What it does:** Shows the exact **Seed A + Seed B** splicing combination to create an item, plus every recipe where that item is used as an ingredient!\n"
-            "⌨️ **How to use:**\n"
-            "- `/recipe item_name:Chandelier`\n"
-            "- `/recipe item_name:Display Box`"
+    },
+    {
+        "title": "🧬 Tool 3/11 — Splicing Recipe Guide (`/recipe`)",
+        "color": 0x9B59B6,
+        "channel": "<#1567216421593944084>",
+        "purpose": (
+            "Shows the exact **Seed A + Seed B** splicing combination required to make an item, plus a list of "
+            "other items you can splice using that seed!"
         ),
-        inline=False,
-    )
-    embed_farming.add_field(
-        name="4️⃣ 💰 Trade Rate & WL/DL/BGL Calculator — `/rate`",
-        value=(
-            "📍 **Channel:** <#1567220472859594853>\n"
-            "📖 **What it does:** Converts any Growtopia rate (`200/1 WL`, `40/1`, `3 WL each`) into exact **BGL + DL + WL** totals and leftover items.\n"
-            "⌨️ **How to use:**\n"
-            "- Type **`/rate`** *(opens the interactive calculator modal)*\n"
-            "- Or type: `/rate quantity:2600 rate:40/1 item_name:Laser Grid Seed`"
+        "how_to_use": (
+            "1. Go to <#1567216421593944084> and type **`/recipe`**.\n"
+            "2. Enter the item name in `item_name`."
         ),
-        inline=False,
-    )
-    embed_farming.add_field(
-        name="5️⃣ ⚖️ Farmable Profit & Gem Comparator — `/compare_farm`",
-        value=(
-            "📍 **Channel:** <#1567233119088803941>\n"
-            "📖 **What it does:** Compares **two farmables side-by-side** (Rarity, Grow Time, Harvests per Day, Average Gems per Tree, and Gems per Hour).\n"
-            "⌨️ **How to use:**\n"
-            "- `/compare_farm first_item:Laser Grid second_item:Chandelier`"
+        "examples": (
+            "- `/recipe item_name:Display Box`\n"
+            "- `/recipe item_name:Laser Grid`\n"
+            "- `/recipe item_name:Angel Wings`"
         ),
-        inline=False,
-    )
-    embed_farming.add_field(
-        name="6️⃣ 🌳 Mass Production & Splicing Tree Planner — `/mass`",
-        value=(
-            "📍 **Channel:** <#1567236019282120836>\n"
-            "📖 **What it does:** Builds the full **multi-step Splicing Family Tree** and calculates the exact **Base Seed Shopping List** (including `10.8%` extra seed drops) for your target tree count!\n"
-            "⌨️ **How to use:**\n"
-            "- `/mass item_name:Display Box target_trees:400`"
+    },
+    {
+        "title": "💰 Tool 4/11 — Trade Rate & WL/DL/BGL Calculator (`/rate`)",
+        "color": 0xF1C40F,
+        "channel": "<#1567220472859594853>",
+        "purpose": (
+            "Calculates exact **Blue Gem Lock (BGL), Diamond Lock (DL), and World Lock (WL)** totals "
+            "for any Growtopia rate (`200/1`, `40/1 WL`, or `3 WL each`)."
         ),
-        inline=False,
-    )
-    embed_farming.set_footer(text=FOOTER_TEXT)
+        "how_to_use": (
+            "1. Go to <#1567220472859594853> and type **`/rate`**.\n"
+            "2. Leave options blank to open the **Interactive Rate Calculator Modal**, or fill in `quantity` and `rate`."
+        ),
+        "examples": (
+            "- `/rate` *(Opens the pop-up calculator)*\n"
+            "- `/rate quantity:2600 rate:40/1 item_name:Laser Grid Seed`\n"
+            "- `/rate quantity:200 rate:15 each item_name:Surgery Tool`"
+        ),
+    },
+    {
+        "title": "🩺 Tool 5/11 — Surgery & Malady Helper (`/surgery`)",
+        "color": 0xE74C3C,
+        "channel": "<#1567231718627483688>",
+        "purpose": (
+            "Step-by-step cure walkthrough for all **27 Growtopia Illnesses & Maladies** (Flu, Broken Bones, "
+            "Brain Tumor, Lupus, Moldy Guts, etc.) with interactive **Emergency Complication Buttons**!"
+        ),
+        "how_to_use": (
+            "1. Go to <#1567231718627483688> and type **`/surgery`**.\n"
+            "2. Select the patient's illness or malady from the autocomplete list.\n"
+            "3. Click the buttons at the bottom (*Heart Stopped, Bleeding, Vision Fading, Fever Rising*) during surgery!"
+        ),
+        "examples": (
+            "- `/surgery malady:Massive Trauma`\n"
+            "- `/surgery malady:Brain Tumor`\n"
+            "- `/surgery malady:Lupus`"
+        ),
+    },
+    {
+        "title": "⚖️ Tool 6/11 — Farmable Profit & Gem Comparator (`/compare_farm`)",
+        "color": 0x1ABC9C,
+        "channel": "<#1567233119088803941>",
+        "purpose": (
+            "Compares **any two farmable items side-by-side** (Rarity, Grow Time, Harvest Cycles per Day, "
+            "Average Gems per Tree, and Gems per Hour)."
+        ),
+        "how_to_use": (
+            "1. Go to <#1567233119088803941> and type **`/compare_farm`**.\n"
+            "2. Enter `first_item` and `second_item`."
+        ),
+        "examples": (
+            "- `/compare_farm first_item:Laser Grid second_item:Chandelier`\n"
+            "- `/compare_farm first_item:Pepper Tree second_item:Fish Tank`"
+        ),
+    },
+    {
+        "title": "🌳 Tool 7/11 — Mass Production & Splicing Planner (`/mass`)",
+        "color": 0x27AE60,
+        "channel": "<#1567236019282120836>",
+        "purpose": (
+            "Builds the complete **multi-step Splicing Family Tree** and calculates the exact **Base Seed Shopping List** "
+            "(accounting for `10.8%` extra seed drops) for your target number of trees!"
+        ),
+        "how_to_use": (
+            "1. Go to <#1567236019282120836> and type **`/mass`**.\n"
+            "2. Enter the item you want to mass produce (`item_name`) and how many final trees you want (`target_trees`)."
+        ),
+        "examples": (
+            "- `/mass item_name:Display Box target_trees:400`\n"
+            "- `/mass item_name:Science Station target_trees:1000`"
+        ),
+    },
+    {
+        "title": "🍳 Tool 8/11 — Home Oven Cooking Timer & Helper (`/cook`)",
+        "color": 0xE67E22,
+        "channel": "<#1567238220972826654>",
+        "purpose": (
+            "Provides exact second-by-second **Oven Heat & Ingredient Timelines** for all 12 recipes + an interactive "
+            "**`🔥 Start Live Oven Timer`** button that pings you in real time before every ingredient drop!"
+        ),
+        "how_to_use": (
+            "1. Go to <#1567238220972826654> and type **`/cook`**.\n"
+            "2. Choose your recipe from the autocomplete list.\n"
+            "3. Click **`🔥 Start Live Oven Timer`** the moment you ignite your oven in-game!"
+        ),
+        "examples": (
+            "- `/cook dish:Berry Crepes`\n"
+            "- `/cook dish:Filet Mignon`\n"
+            "- `/cook dish:Friedakh`"
+        ),
+    },
+    {
+        "title": "🦸 Tool 9/11 — Crime Wave Supervillain Guide (`/crime`)",
+        "color": 0xC0392B,
+        "channel": "<#1567240061320171713>",
+        "purpose": (
+            "Displays the optimal **5-Card Superhero Deck**, Villain Immunities, and Turn-by-Turn Counter Rotations "
+            "to beat all **8 Supervillains**!"
+        ),
+        "how_to_use": (
+            "1. Go to <#1567240061320171713> and type **`/crime`**.\n"
+            "2. Select the Supervillain you are fighting."
+        ),
+        "examples": (
+            "- `/crime villain:Dr. Destructo`\n"
+            "- `/crime villain:Ms. Terry`\n"
+            "- `/crime villain:Dragon Hand`"
+        ),
+    },
+    {
+        "title": "🎣 Tool 10/11 — Fishing & Fish Port Guide (`/fish`)",
+        "color": 0x2980B9,
+        "channel": "<#1567240147576291389>",
+        "purpose": (
+            "Covers all **7 Lures & Baits** (Wiggly Worm, Shiny Flashy Thing, Salmon Egg, Uranium Lure, etc.), "
+            "catchable fish weights, Fishing Rods, and **Fish Port** training!"
+        ),
+        "how_to_use": (
+            "1. Go to <#1567240147576291389> and type **`/fish`**.\n"
+            "2. Pick a bait/lure or `Fish Port Training` from the autocomplete list."
+        ),
+        "examples": (
+            "- `/fish bait_or_topic:Shiny Flashy Thing`\n"
+            "- `/fish bait_or_topic:Salmon Egg`\n"
+            "- `/fish bait_or_topic:Fish Port Training`"
+        ),
+    },
+    {
+        "title": "🚀 Tool 11/11 — Star Captain & Bridge Station Guide (`/startrek`)",
+        "color": 0x8E44AD,
+        "channel": "<#1567240655774941264>",
+        "purpose": (
+            "Explains all **6 Starship Bridge Stations** (*Helm, Tactical, Science, Engineering, Medical, Communications*) "
+            "and Sector Encounter rewards."
+        ),
+        "how_to_use": (
+            "1. Go to <#1567240655774941264> and type **`/startrek`**.\n"
+            "2. Select your Bridge Station or Sector Encounter from the list."
+        ),
+        "examples": (
+            "- `/startrek station_or_sector:Tactical`\n"
+            "- `/startrek station_or_sector:Helm`\n"
+            "- `/startrek station_or_sector:Sector Encounters`"
+        ),
+    },
+]
 
-    # Embed 2: Role Quests, Mini-Games, & Community Commands (Tools 7–11)
-    embed_roles = discord.Embed(
-        title="🎮 Growcom Tools — Complete Command Guide (Part 2: Role Quests & Mini-Games)",
-        description="Master Surgery, Home Oven Cooking, Crime Wave, Fishing, and Star Captain with interactive step-by-step assistants!",
-        color=0x3498DB,
-        timestamp=now,
-    )
-    embed_roles.add_field(
-        name="7️⃣ 🩺 Surgery & Malady Helper — `/surgery`",
-        value=(
-            "📍 **Channel:** <#1567231718627483688>\n"
-            "📖 **What it does:** Covers all **27 Growtopia Illnesses & Maladies** (Flu,Broken Bones, Brain Tumor, Lupus, Moldy Guts, etc.) with exact tool order + **Emergency Complication Buttons** (*Heart Stopped, Incisions Bleeding, Vision Fading, Fever Rising*).\n"
-            "⌨️ **How to use:**\n"
-            "- `/surgery malady:Massive Trauma` *(has autocomplete as you type!)*"
-        ),
-        inline=False,
-    )
-    embed_roles.add_field(
-        name="8️⃣ 🍳 Home Oven Cooking Timer & Helper — `/cook`",
-        value=(
-            "📍 **Channel:** <#1567238220972826654>\n"
-            "📖 **What it does:** Displays exact second-by-second **Oven Heat & Ingredient Timelines** (Berry Crepes, Filet Mignon, Friedakh, etc.) + a **`🔥 Start Live Oven Timer`** button that pings you in real time before every step!\n"
-            "⌨️ **How to use:**\n"
-            "- `/cook dish:Berry Crepes` *(then click **Start Live Oven Timer** when you press Cook!)*"
-        ),
-        inline=False,
-    )
-    embed_roles.add_field(
-        name="9️⃣ 🦸 Crime Wave Supervillain Guide — `/crime`",
-        value=(
-            "📍 **Channel:** <#1567240061320171713>\n"
-            "📖 **What it does:** Shows the best **5-Card Superhero Deck**, Villain Immunities, and Turn-by-Turn Counter Rotations for all **8 Supervillains** (*Ms. Terry, Dr. Destructo, Dragon Hand, Big Bertha*, etc.).\n"
-            "⌨️ **How to use:**\n"
-            "- `/crime villain:Dr. Destructo`"
-        ),
-        inline=False,
-    )
-    embed_roles.add_field(
-        name="🔟 🎣 Fishing & Fish Port Guide — `/fish`",
-        value=(
-            "📍 **Channel:** <#1567240147576291389>\n"
-            "📖 **What it does:** Lists all **7 Lures & Baits** (Wiggly Worm, Shiny Flashy Thing, Salmon Egg, Uranium Lure, etc.), target fish weights, Rods, and **Fish Port** training.\n"
-            "⌨️ **How to use:**\n"
-            "- `/fish bait_or_topic:Shiny Flashy Thing`"
-        ),
-        inline=False,
-    )
-    embed_roles.add_field(
-        name="1️⃣1️⃣ 🚀 Star Captain & Bridge Station Guide — `/startrek`",
-        value=(
-            "📍 **Channel:** <#1567240655774941264>\n"
-            "📖 **What it does:** Explains all **6 Starship Bridge Stations** (*Helm, Tactical, Science, Engineering, Medical, Communications*) and Sector Encounter rewards.\n"
-            "⌨️ **How to use:**\n"
-            "- `/startrek station_or_sector:Tactical`"
-        ),
-        inline=False,
-    )
-    embed_roles.add_field(
-        name="💼 Bonus: Marketplace & Community Commands",
-        value=(
-            "- **`/vouch`** *(in <#1568494512945373307>)* — Post a verified trade vouch for another member.\n"
-            "- **`/report_scammer`** *(Anywhere)* — Privately submit a scammer report + screenshot proof for Admin approval.\n"
-            "- **`/suggest`** *(in <#1568514201909985421>)* — Submit a server or bot suggestion for community 👍/👎 voting.\n"
-            "- **`/feedback`** *(in <#1568505161087975454>)* — Leave a 1–5 Star review for the Growcom server!"
-        ),
-        inline=False,
-    )
-    embed_roles.set_footer(text=FOOTER_TEXT)
 
-    return [embed_farming, embed_roles]
+def build_single_tool_embed(spec: dict[str, Any]) -> discord.Embed:
+    embed = discord.Embed(
+        title=spec["title"],
+        description=f"📍 **Dedicated Channel:** {spec['channel']}\n\n{spec['purpose']}",
+        color=spec["color"],
+        timestamp=datetime.now(EVENT_TZ),
+    )
+    embed.add_field(
+        name="⌨️ How to Use",
+        value=spec["how_to_use"],
+        inline=False,
+    )
+    embed.add_field(
+        name="💡 Command Examples",
+        value=spec["examples"],
+        inline=False,
+    )
+    embed.set_footer(text=FOOTER_TEXT)
+    return embed
 
 
 class ToolGuidesCog(commands.Cog):
-    """Provisions and updates the read-only #📖tool-guides channel at the top of 🛠️ Growcom Tools."""
+    """Provisions the read-only #📖tool-guides channel and posts 11 separate message bubbles (1 per tool)."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self._provisioned_guilds: set[int] = set()
 
-    async def provision_tool_guides_channel(self, guild: discord.Guild) -> discord.TextChannel:
+    async def provision_tool_guides_channel(self, guild: discord.Guild, force_repost: bool = False) -> discord.TextChannel:
         state = load_state()
         everyone_role = guild.default_role
         bot_member = guild.me
@@ -236,19 +309,17 @@ class ToolGuidesCog(commands.Cog):
                     guide_ch = ch
                     break
 
-        embeds = build_tool_guide_embeds()
-
+        created_new = False
         if not guide_ch:
             guide_ch = await guild.create_text_channel(
                 name="📖tool-guides",
                 category=tools_cat,
                 position=0,
-                topic="📖 Official Growcom Tools Command Guide — Read-only tutorial for all 11 Growtopia calculator & helper commands.",
+                topic="📖 Official Growcom Tools Command Guide — Read-only step-by-step tutorial for each of the 11 Growtopia tools.",
                 overwrites=overwrites,
                 reason="Create read-only #📖tool-guides channel at top of 🛠️ Growcom Tools",
             )
-            msg = await guide_ch.send(embeds=embeds)
-            state["tool_guides_message_id"] = str(msg.id)
+            created_new = True
         else:
             await guide_ch.edit(
                 category=tools_cat,
@@ -256,14 +327,15 @@ class ToolGuidesCog(commands.Cog):
                 overwrites=overwrites,
                 reason="Ensure #📖tool-guides is read-only and at top of 🛠️ Growcom Tools",
             )
-            msg_id = state.get("tool_guides_message_id")
-            if msg_id:
-                try:
-                    existing_msg = await guide_ch.fetch_message(int(msg_id))
-                    await existing_msg.edit(embeds=embeds)
-                except Exception:
-                    new_msg = await guide_ch.send(embeds=embeds)
-                    state["tool_guides_message_id"] = str(new_msg.id)
+
+        if created_new or force_repost:
+            msg_ids: list[str] = []
+            for spec in INDIVIDUAL_TOOL_GUIDES:
+                embed = build_single_tool_embed(spec)
+                msg = await guide_ch.send(embed=embed)
+                msg_ids.append(str(msg.id))
+                await asyncio.sleep(0.35)
+            state["tool_guides_message_ids"] = msg_ids
 
         state["tool_guides_channel_id"] = str(guide_ch.id)
         save_state(state)
@@ -277,7 +349,7 @@ class ToolGuidesCog(commands.Cog):
                 continue
             if guild.me and guild.me.guild_permissions.administrator:
                 try:
-                    ch = await self.provision_tool_guides_channel(guild)
+                    ch = await self.provision_tool_guides_channel(guild, force_repost=False)
                     logger.info("Configured read-only %s (%s) in %s", ch.name, ch.id, guild.name)
                 except Exception as exc:
                     logger.warning("Could not configure #📖tool-guides in %s: %s", guild.name, exc)
@@ -291,9 +363,9 @@ class ToolGuidesCog(commands.Cog):
             await interaction.response.send_message("❌ Admin permission required.", ephemeral=True)
             return
         await interaction.response.defer(ephemeral=True)
-        ch = await self.provision_tool_guides_channel(interaction.guild)
+        ch = await self.provision_tool_guides_channel(interaction.guild, force_repost=True)
         await interaction.followup.send(
-            f"✅ Refreshed read-only {ch.mention} at the top of **🛠️ Growcom Tools**!",
+            f"✅ Posted all **11 individual tool guide cards** in read-only {ch.mention}!",
             ephemeral=True,
         )
 
