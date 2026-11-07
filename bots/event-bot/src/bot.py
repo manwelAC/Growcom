@@ -52,6 +52,7 @@ COMMAND_CHANNEL_KEYS: dict[str, str] = {
     "crime": "crime_channel_id",
     "fish": "fish_channel_id",
     "startrek": "startrek_channel_id",
+    "vouch": "vouch_channel_id",
 }
 
 
@@ -69,8 +70,8 @@ class GrowcomCommandTree(app_commands.CommandTree):
 
         cmd_name = interaction.command.name
 
-        # Admin /set_... and /automod_... configuration commands are never rate-limited
-        if cmd_name.startswith(("set_", "automod_")):
+        # Admin /set_..., /setup_..., and /automod_... configuration commands are never rate-limited
+        if cmd_name.startswith(("set_", "setup_", "automod_")):
             return True
 
         # 1. Verify channel lock first so typing in the wrong channel doesn't waste the user's 2-min cooldown
