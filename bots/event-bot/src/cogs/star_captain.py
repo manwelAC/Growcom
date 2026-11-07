@@ -430,15 +430,15 @@ class StarCaptainCog(commands.Cog, name="Star Captain"):
         return matches[:25]
 
     @app_commands.command(
-        name="startrek",
+        name="startopia",
         description="Startopia 2.0 Voyage & Ship Mission Guide: exact tool order for all 46+ missions & sectors!",
     )
     @app_commands.describe(
-        station_or_sector="Type the Startopia Mission name shown on your Helm (e.g. Parasite Hunt, Rebel Attack, Growlactus)"
+        mission="Type the Startopia Mission name shown on your Helm (e.g. Parasite Hunt, Rebel Attack, Growlactus)"
     )
-    @app_commands.autocomplete(station_or_sector=startrek_autocomplete)
-    async def startrek_command(self, interaction: discord.Interaction, station_or_sector: str) -> None:
-        query = station_or_sector.strip().lower()
+    @app_commands.autocomplete(mission=startrek_autocomplete)
+    async def startopia_command(self, interaction: discord.Interaction, mission: str) -> None:
+        query = mission.strip().lower()
         matched_key = None
         for name, info in STARTOPIA_MISSIONS.items():
             aliases = info.get("aliases", [])
@@ -449,7 +449,7 @@ class StarCaptainCog(commands.Cog, name="Star Captain"):
 
         if not matched_key:
             await interaction.response.send_message(
-                f"❌ Could not find a Startopia mission matching **`{station_or_sector}`**. "
+                f"❌ Could not find a Startopia mission matching **`{mission}`**. "
                 "Try typing the mission title shown on your Starship Helm (e.g. `Parasite Hunt`, `Warp Data`, `Rebel Attack`, `Growlactus`, or `Ship Setup`)!",
                 ephemeral=True,
             )
@@ -502,18 +502,18 @@ class StarCaptainCog(commands.Cog, name="Star Captain"):
         await interaction.response.send_message(embed=embed, view=StartopiaHelperView())
 
     @app_commands.command(
-        name="set_startrek_channel",
-        description="Lock the /startrek command to a specific channel (e.g. #🚀star-captain)",
+        name="set_startopia_channel",
+        description="Lock the /startopia command to a specific channel (e.g. #🚀star-captain)",
     )
     @app_commands.default_permissions(manage_guild=True)
-    @app_commands.describe(channel="The channel where /startrek is allowed (defaults to current channel)")
-    async def set_startrek_channel_command(
+    @app_commands.describe(channel="The channel where /startopia is allowed (defaults to current channel)")
+    async def set_startopia_channel_command(
         self,
         interaction: discord.Interaction,
         channel: discord.TextChannel | None = None,
     ) -> None:
         if not is_server_manager(interaction):
-            await interaction.response.send_message("❌ Only server admins can use `/set_startrek_channel`.", ephemeral=True)
+            await interaction.response.send_message("❌ Only server admins can use `/set_startopia_channel`.", ephemeral=True)
             return
         target_channel = channel or interaction.channel
         if not isinstance(target_channel, discord.TextChannel):
@@ -523,7 +523,7 @@ class StarCaptainCog(commands.Cog, name="Star Captain"):
         state["startrek_channel_id"] = target_channel.id
         save_state(state)
         await interaction.response.send_message(
-            f"✅ Locked **`/startrek`** to {target_channel.mention}! Players can now only use `/startrek` inside {target_channel.mention}."
+            f"✅ Locked **`/startopia`** to {target_channel.mention}! Players can now only use `/startopia` inside {target_channel.mention}."
         )
 
 

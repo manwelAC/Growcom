@@ -211,7 +211,7 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
         ),
     },
     {
-        "title": "🚀 Tool 11/11 — Startopia 2.0 Voyage & Ship Guide (`/startrek`)",
+        "title": "🚀 Tool 11/11 — Startopia 2.0 Voyage & Ship Guide (`/startopia`)",
         "color": 0x8E44AD,
         "channel": "<#1567240655774941264>",
         "purpose": (
@@ -220,14 +220,14 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
             "Starship equipment ratings, and **Growlactus / Ascended / Descended** sector guides)."
         ),
         "how_to_use": (
-            "1. Go to <#1567240655774941264> and type **`/startrek`**.\n"
+            "1. Go to <#1567240655774941264> and type **`/startopia`**.\n"
             "2. Type the **Mission Name** shown on your Starship Helm (or select **`Ship Setup & Sector Guide`**).\n"
             "3. Click the buttons at the bottom for **Mid-Voyage Encounters** or **Low Hull/Crew/Rep fixes**!"
         ),
         "examples": (
-            "- `/startrek station_or_sector:Parasite Hunt`\n"
-            "- `/startrek station_or_sector:Growlactus (Boss Voyage)`\n"
-            "- `/startrek station_or_sector:Ship Setup & Sector Guide (Startopia 2.0)`"
+            "- `/startopia mission:Parasite Hunt`\n"
+            "- `/startopia mission:Growlactus (Boss Voyage)`\n"
+            "- `/startopia mission:Ship Setup & Sector Guide (Startopia 2.0)`"
         ),
     },
 ]

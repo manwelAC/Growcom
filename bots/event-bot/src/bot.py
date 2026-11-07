@@ -51,7 +51,7 @@ COMMAND_CHANNEL_KEYS: dict[str, str] = {
     "cook": "cook_channel_id",
     "crime": "crime_channel_id",
     "fish": "fish_channel_id",
-    "startrek": "startrek_channel_id",
+    "startopia": "startrek_channel_id",
     "vouch": "vouch_channel_id",
     "feedback": "feedback_channel_id",
     "suggest": "suggestions_channel_id",
