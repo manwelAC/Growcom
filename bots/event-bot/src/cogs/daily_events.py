@@ -1,15 +1,17 @@
 """
-Category 1: Daily Events & Auto-DQ Feed (cogs/daily_events.py)
+Category 1: Daily Events, Auto-DQ Feed, & Dynamic Daily Challenge Feed (cogs/daily_events.py)
 - 1:00 PM (00:00 GT) Daily Reset Scheduler & Self-Healing Poller
 - #dq-feed Auto-Detection Listener (Supports Discord Components V2 used by The Lost Nemo!, Embeds, & Plaintext)
+- #⚔️daily-challenges Auto-Detection Listener (Parses official Growtopia #🗓daily-challenges 25-hour cycle banners)
 - /daily, /set_daily, /set_daily_channel, /set_dq_feed_channel
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
 import re
+import time
 from typing import TYPE_CHECKING, Any
 
 import discord
@@ -28,6 +30,47 @@ from utils.helpers import (
 
 if TYPE_CHECKING:
     from bot import EventBot
+
+DEFAULT_DC_FEED_CHANNEL_ID = 1567229570237726872
+
+DAILY_CHALLENGE_CATALOG: dict[str, tuple[str, str]] = {
+    "doctors-duel": ("Doctor's Duel", "Perform surgeries for points (+30 to +250 pts per surgery)."),
+    "fish-frenzy": ("Fish Frenzy", "Catch fish for points (+1 pt per lb of fish caught)."),
+    "star-strife": ("Star Strife", "Complete Star Missions for points (+20 to +200 pts per mission)."),
+    "chef-showdown": ("Chef Showdown", "Cook food for points without assistance (up to +160 pts per 100% dish)."),
+    "crystal-crusher": ("Crystal Crusher", "Harmonize and smash crystals (+1 to +5 pts per crystal)."),
+    "card-clash": ("Card Clash", "Defeat Crime-Fighting Supervillains (+50 pts per supervillain)."),
+    "treasure-turmoil": ("Treasure Turmoil", "Obtain Map Fragments (+1 pt) and solve Treasure Maps (+50 to +500 pts)."),
+    "malady-mash": ("Malady Mash", "Perform surgeries on patients with a Malady (+100 to +230 pts)."),
+    "radiation-race": ("Radiation Race", "Find Uranium Blocks in GEIGERHILLS (+1 pt per Uranium Block)."),
+    "chemical-conundrum": ("Chemical Conundrum", "Create Synthetic Chemicals without assistance (+100 pts each)."),
+    "war-of-wolves": ("War of Wolves", "Complete WOLFWORLD parkours (+1 pt per second remaining)."),
+    "battlers-beatdown": ("Battler's Beatdown", "Win Pet Battles against a Pet Trainer (+1 pt per win)."),
+    "boo-blast": ("BOO Blast", "Hit (+1 pt) and defeat (+100 pts) Boss Ghosts."),
+    "mutant-kitchen": ("Mutant Kitchen", "Cook Mutant Food for points without assistance (up to +160 pts)."),
+}
+
+
+def format_dynamic_challenge_from_feed(slug: str, start_ts: int) -> str:
+    """Format the live Daily Challenge status and 25-hour cycle countdown from #⚔️daily-challenges."""
+    clean_slug = slug.strip().lower()
+    title, desc = DAILY_CHALLENGE_CATALOG.get(
+        clean_slug,
+        (clean_slug.replace("-", " ").title(), "2-hour in-game competition."),
+    )
+    now_ts = int(time.time())
+    end_ts = start_ts + 7200       # Each Daily Challenge lasts 2 hours
+    next_ts = start_ts + 90000     # Next Daily Challenge starts 25 hours after previous start
+
+    if now_ts < end_ts:
+        return (
+            f"🟢 **LIVE NOW: {title}** — {desc}\n"
+            f"⏰ **Ends:** <t:{end_ts}:R>  •  ⏭️ **Next (25h cycle):** <t:{next_ts}:t> (<t:{next_ts}:R>)"
+        )
+    return (
+        f"**{title}** — {desc}\n"
+        f"✅ **Last Active:** <t:{start_ts}:R>  •  ⏭️ **Next Challenge (~25h cycle):** <t:{next_ts}:f> (<t:{next_ts}:R>)"
+    )
 
 
 def build_daily_reset_embed(data: dict[str, Any]) -> discord.Embed:
@@ -63,11 +106,11 @@ def build_daily_reset_embed(data: dict[str, Any]) -> discord.Embed:
         inline=False,
     )
 
-    # 2. Daily Challenge
-    daily_challenge = data.get("daily_challenge", "Active In-Game Challenge")
+    # 2. Daily Challenge (Dynamic 25-hour cycle synced from #⚔️daily-challenges)
+    daily_challenge = data.get("daily_challenge", "⏳ Syncing from #⚔️daily-challenges...")
     embed.add_field(
-        name="🏆 Daily Challenge",
-        value=f"**{daily_challenge}**",
+        name="🏆 Daily Challenge (25-Hour Cycle)",
+        value=daily_challenge,
         inline=False,
     )
 
@@ -89,8 +132,8 @@ def build_daily_reset_embed(data: dict[str, Any]) -> discord.Embed:
             embed.set_thumbnail(url=first_sprite)
     else:
         dq_text = (
-            "⏳ *Waiting for today's Crazy Jim items to be reported...*\n"
-            "*(Auto-updates as soon as tracked, or use `/set_daily` to post early!)*"
+            "⏳ *Waiting for `#dq-feed` (**The Lost Nemo!**) to post today's Crazy Jim items...*\n"
+            "*(Auto-updates the second `#dq-feed` posts, or Admins can click **📝 Set Today's DQ** below!)*"
         )
 
     embed.add_field(
@@ -133,7 +176,6 @@ def extract_dq_and_role_from_text(full_text: str) -> tuple[list[tuple[str, int]]
     if not full_text.strip():
         return [], None
 
-    # Extract Role Day if present in the feed post (e.g. "- **Role Day** - <:Chef_Role:...> Chef")
     role_day: str | None = None
     role_match = re.search(
         r"Role\s+Day\*?\*?\s*[-:]\s*(?:<a?:[^>]+>\s*|\W+)*(Builder|Surgeon|Fishing|Chef|Star Captain|Farmer)",
@@ -143,13 +185,11 @@ def extract_dq_and_role_from_text(full_text: str) -> tuple[list[tuple[str, int]]
     if role_match:
         role_day = role_match.group(1).title()
 
-    # 1. Check Markdown link format used by The Lost Nemo!: [200 Glass Pane](https://growtopiawiki.com/...)
     link_matches = re.findall(r"\[(\d{1,4})\s+([^\]]+)\]\(https?://[^\)]+\)", full_text)
     if len(link_matches) >= 2:
         items = [(name.strip(), int(qty)) for qty, name in link_matches[:2]]
         return items, role_day
 
-    # 2. Fallback to line-by-line plain text / embed parsing
     cleaned_lines: list[str] = []
     for raw_line in full_text.splitlines():
         line = re.sub(r"<a?:[a-zA-Z0-9_]+:\d+>", "", raw_line)
@@ -175,7 +215,6 @@ def extract_dq_and_role_from_text(full_text: str) -> tuple[list[tuple[str, int]]
     }
 
     for line in cleaned_lines:
-        # Also split single lines separated by '·'
         for segment in re.split(r"\s*·\s*", line):
             seg = re.sub(r"\s+-\s+\d+\s*$", "", segment.strip()).strip("- ").strip()
             m1 = re.match(
@@ -205,7 +244,6 @@ def extract_dq_and_role_from_text(full_text: str) -> tuple[list[tuple[str, int]]
 
 
 def extract_dq_items_from_message(message: discord.Message) -> tuple[list[tuple[str, int]], str | None]:
-    """Extract DQ items and Role Day from a discord.Message object."""
     chunks: list[str] = []
     if message.content:
         chunks.append(message.content)
@@ -244,7 +282,7 @@ class DailyUpdateModal(discord.ui.Modal, title="Update 1:00 PM Daily Reset Board
     )
     role = discord.ui.TextInput(
         label="Role Day (Optional calibration)",
-        placeholder="Builder, Surgeon, Fishing, Chef, Star Captain, or Farmer",
+        placeholder="Builder, Chef, Farmer, Fishing, Star Captain, or Surgeon",
         required=False,
         max_length=40,
     )
@@ -260,7 +298,7 @@ class DailyUpdateModal(discord.ui.Modal, title="Update 1:00 PM Daily Reset Board
         return text, 1
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
         item1_name, item1_qty = self._parse_qty_and_name(self.item1.value)
         item2_name, item2_qty = self._parse_qty_and_name(self.item2.value)
         payload = {
@@ -273,14 +311,35 @@ class DailyUpdateModal(discord.ui.Modal, title="Update 1:00 PM Daily Reset Board
         }
         resp = await self.cog.bot.api._client.post("/api/v1/wiki/daily/override", json=payload)
         resp.raise_for_status()
-        updated_data = resp.json()
 
         await self.cog.publish_or_update_daily_board(force_new_message=False)
-        embed = build_daily_reset_embed(updated_data)
         await interaction.followup.send(
-            content="✅ Updated today's Daily Reset data and synced the live channel board!",
-            embed=embed,
+            content="✅ Updated today's Daily Reset board!",
+            ephemeral=True,
         )
+
+
+class QuickDQSetView(discord.ui.View):
+    """Persistent button displayed on the Daily Reset card while waiting for #dq-feed to report items."""
+
+    def __init__(self, cog: DailyEventsCog) -> None:
+        super().__init__(timeout=None)
+        self.cog = cog
+
+    @discord.ui.button(
+        label="Admin: Set Today's DQ Items",
+        emoji="📝",
+        style=discord.ButtonStyle.secondary,
+        custom_id="growcom:quick_set_dq",
+    )
+    async def quick_set_btn(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if not is_server_manager(interaction):
+            await interaction.response.send_message(
+                "❌ Only **Server Administrators** or the **Server Owner** can manually enter the Daily Quest items!",
+                ephemeral=True,
+            )
+            return
+        await interaction.response.send_modal(DailyUpdateModal(self.cog))
 
 
 class DailyEventsCog(commands.Cog, name="Daily Events"):
@@ -288,12 +347,46 @@ class DailyEventsCog(commands.Cog, name="Daily Events"):
         self.bot = bot
 
     async def cog_load(self) -> None:
+        self.bot.add_view(QuickDQSetView(self))
         self.daily_1pm_task.start()
         self.post_reset_poller.start()
 
     async def cog_unload(self) -> None:
         self.daily_1pm_task.cancel()
         self.post_reset_poller.cancel()
+
+    async def sync_latest_dc_feed(self) -> bool:
+        """
+        Reads the latest message from #⚔️daily-challenges (Growtopia #🗓daily-challenges webhook)
+        and parses the active/latest 25-hour cycle Daily Challenge banner filename & timestamp.
+        """
+        state = load_state()
+        dc_channel_id = int(state.get("dc_feed_channel_id", DEFAULT_DC_FEED_CHANNEL_ID))
+        try:
+            route = discord.http.Route(
+                "GET",
+                "/channels/{channel_id}/messages",
+                channel_id=dc_channel_id,
+            )
+            raw_messages: list[dict[str, Any]] = await self.bot.http.request(route, params={"limit": 3})
+            for raw_msg in raw_messages:
+                atts = raw_msg.get("attachments") or []
+                for att in atts:
+                    fname = att.get("filename", "")
+                    m = re.search(r"daily-challenge-([a-z0-9-]+)-\d{4}-\d{2}-\d{2}", fname, re.IGNORECASE)
+                    if m:
+                        slug = m.group(1).lower()
+                        msg_dt = datetime.fromisoformat(raw_msg["timestamp"])
+                        start_ts = int(msg_dt.timestamp())
+                        formatted_dc = format_dynamic_challenge_from_feed(slug, start_ts)
+                        await self.bot.api._client.post(
+                            "/api/v1/wiki/daily/override",
+                            json={"daily_challenge": formatted_dc},
+                        )
+                        return True
+        except Exception as exc:
+            logger.debug("Daily Challenge feed sync skipped: %s", exc)
+        return False
 
     async def sync_latest_dq_feed(self, ignore_timestamp: bool = False) -> bool:
         """
@@ -320,7 +413,6 @@ class DailyEventsCog(commands.Cog, name="Daily Events"):
                 if self.bot.user and author_id == str(self.bot.user.id):
                     continue
 
-                # Check message timestamp against current GT day reset (allow 1h grace before 1:00 PM)
                 if not ignore_timestamp and reset_ts > 0 and raw_msg.get("timestamp"):
                     msg_dt = datetime.fromisoformat(raw_msg["timestamp"])
                     if int(msg_dt.timestamp()) < (reset_ts - 3600):
@@ -366,43 +458,43 @@ class DailyEventsCog(commands.Cog, name="Daily Events"):
         if not isinstance(channel, discord.abc.Messageable):
             return None
 
+        await self.sync_latest_dc_feed()
         data = await self.bot.api.get_daily_status()
         embed = build_daily_reset_embed(data)
+        has_dq = bool(data.get("daily_quest_items"))
+        view = None if has_dq else QuickDQSetView(self)
 
         gt_date = data.get("gt_date")
         last_message_id = state.get("last_message_id")
         last_gt_date = state.get("last_gt_date")
 
-        # 1. Try editing by stored last_message_id if from the same GT date
         if not force_new_message and last_gt_date == gt_date and last_message_id and state.get("last_channel_id") == channel_id:
             try:
                 msg = await channel.fetch_message(int(last_message_id))  # type: ignore[attr-defined]
-                await msg.edit(embed=embed)
-                state["dq_populated"] = bool(data.get("daily_quest_items"))
+                await msg.edit(embed=embed, view=view)
+                state["dq_populated"] = has_dq
                 save_state(state)
                 return msg
             except Exception:
                 pass
 
-        # 2. Cloud container restart recovery: scan the last 5 messages in #daily-announcements
-        # to see if today's board ("🌅 Growtopia Daily Reset — {gt_date}") was already posted!
         if not force_new_message and self.bot.user:
             try:
-                async for recent in channel.history(limit=5):  # type: ignore[attr-defined]
+                async for recent in channel.history(limit=10):  # type: ignore[attr-defined]
                     if (
                         recent.author.id == self.bot.user.id
                         and recent.embeds
                         and recent.embeds[0].title
                         and str(gt_date) in recent.embeds[0].title
                     ):
-                        await recent.edit(embed=embed)
+                        await recent.edit(embed=embed, view=view)
                         state.update(
                             {
                                 "configured_channel_id": channel_id,
                                 "last_gt_date": gt_date,
                                 "last_message_id": recent.id,
                                 "last_channel_id": channel_id,
-                                "dq_populated": bool(data.get("daily_quest_items")),
+                                "dq_populated": has_dq,
                             }
                         )
                         save_state(state)
@@ -414,14 +506,14 @@ class DailyEventsCog(commands.Cog, name="Daily Events"):
         ping_role_id = os.getenv("DAILY_EVENTS_PING_ROLE_ID", "").strip()
         content = f"<@&{ping_role_id}>" if ping_role_id.isdigit() else None
 
-        msg = await channel.send(content=content, embed=embed)
+        msg = await channel.send(content=content, embed=embed, view=view)
         state.update(
             {
                 "configured_channel_id": channel_id,
                 "last_gt_date": gt_date,
                 "last_message_id": msg.id,
                 "last_channel_id": channel_id,
-                "dq_populated": bool(data.get("daily_quest_items")),
+                "dq_populated": has_dq,
             }
         )
         save_state(state)
@@ -432,6 +524,7 @@ class DailyEventsCog(commands.Cog, name="Daily Events"):
     async def daily_1pm_task(self) -> None:
         """Fires automatically every day at 1:00 PM (13:00 Asia/Manila)."""
         logger.info("1:00 PM Daily Reset triggered! Publishing new Daily Quest / Role Day / Challenge board...")
+        await self.sync_latest_dc_feed()
         await self.sync_latest_dq_feed(ignore_timestamp=False)
         await self.publish_or_update_daily_board(force_new_message=True)
 
@@ -443,6 +536,7 @@ class DailyEventsCog(commands.Cog, name="Daily Events"):
     async def post_reset_poller(self) -> None:
         """Self-healing check + post-1PM poller."""
         try:
+            await self.sync_latest_dc_feed()
             data = await self.bot.api.get_daily_status()
             state = load_state()
             if not data.get("daily_quest_items"):
@@ -466,6 +560,7 @@ class DailyEventsCog(commands.Cog, name="Daily Events"):
     @commands.Cog.listener()
     async def on_ready(self) -> None:
         try:
+            await self.sync_latest_dc_feed()
             await self.sync_latest_dq_feed(ignore_timestamp=False)
             await self.publish_or_update_daily_board(force_new_message=False)
         except Exception as exc:
@@ -477,9 +572,17 @@ class DailyEventsCog(commands.Cog, name="Daily Events"):
             return
 
         state = load_state()
+
+        # 1. Did a new official Daily Challenge land in #⚔️daily-challenges?
+        dc_channel_id = int(state.get("dc_feed_channel_id", DEFAULT_DC_FEED_CHANNEL_ID))
+        if message.channel.id == dc_channel_id:
+            if await self.sync_latest_dc_feed():
+                await self.publish_or_update_daily_board(force_new_message=False)
+            return
+
+        # 2. Did a new Daily Quest post land in #dq-feed?
         feed_channel_id = state.get("dq_feed_channel_id") or os.getenv("DQ_FEED_CHANNEL_ID", "").strip()
         if feed_channel_id and str(message.channel.id) == str(feed_channel_id):
-            # Sync via raw HTTP so Discord Components V2 (used by The Lost Nemo!) are parsed completely
             synced = await self.sync_latest_dq_feed(ignore_timestamp=True)
             if not synced:
                 items, role_day = extract_dq_items_from_message(message)
@@ -569,6 +672,7 @@ class DailyEventsCog(commands.Cog, name="Daily Events"):
         state["configured_channel_id"] = target_channel.id
         save_state(state)
 
+        await self.sync_latest_dc_feed()
         await self.sync_latest_dq_feed(ignore_timestamp=False)
         msg = await self.publish_or_update_daily_board(force_new_message=True)
         if msg:
@@ -583,6 +687,7 @@ class DailyEventsCog(commands.Cog, name="Daily Events"):
     @app_commands.command(name="daily", description="View today's Growtopia Role Day, Daily Challenge, and Daily Quest")
     async def daily_command(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer()
+        await self.sync_latest_dc_feed()
         data = await self.bot.api.get_daily_status()
         if not data.get("daily_quest_items"):
             if await self.sync_latest_dq_feed(ignore_timestamp=False):
@@ -601,7 +706,7 @@ class DailyEventsCog(commands.Cog, name="Daily Events"):
         item2_name="Second Crazy Jim Daily Quest item name",
         item2_qty="Quantity required for the second item",
         daily_challenge="Optional: Today's active Daily Challenge name/description",
-        role_day="Optional: Calibrate today's Role Day (Builder, Surgeon, Fishing, Chef, Star Captain, Farmer)",
+        role_day="Optional: Calibrate today's Role Day (Builder, Chef, Farmer, Fishing, Star Captain, Surgeon)",
     )
     async def set_daily_command(
         self,

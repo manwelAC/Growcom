@@ -1,19 +1,18 @@
 """
 Wrapper around `growtopia.wiki` and `growtopia.growtopia_info.status` (from H-pun/growtopia-api).
-Provides resilient Fandom Wiki item scraping with TTL caching and the 1:00 PM Daily Reset
-aggregator (Role Day rotation, Daily Quest, Daily Challenge, and WOTD status).
+Provides resilient Growtopia Wiki item scraping with TTL caching and the 1:00 PM Daily Reset
+aggregator (Role Day rotation, dynamic Daily Challenge, Daily Quest, and WOTD status).
 """
 
 from __future__ import annotations
 
+from datetime import date, datetime, time as dt_time, timedelta
 import logging
 import re
 import time
-from datetime import date, datetime, time as dt_time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-import requests
 from bs4 import BeautifulSoup
 from growtopia.wiki import (
     get_item_description,
@@ -24,42 +23,31 @@ from growtopia.wiki import (
     get_item_sprite,
     get_item_title,
     get_simple_item_data,
-    search_item as gt_search_item,
 )
+import requests
 
 from app.core.items_parser import items_index
 from app.schemas import DailyQuestItem, DailyStatusResponse, WikiItemResponse
 
 logger = logging.getLogger("growcom.wiki_scraper")
 
-# Growtopia's 6-day Role Day rotation (anchored to Growtopia Server Date)
+# Growtopia's 6-day Role Day rotation (alphabetical in-game cycle anchored to 2026-11-05 = Builder)
+# Verified against live in-game resets:
+# - 2026-11-05 = Builder
+# - 2026-11-06 = Chef
+# - 2026-11-07 = Farmer
+# - 2026-11-08 = Fishing
+# - 2026-11-09 = Star Captain
+# - 2026-11-10 = Surgeon
 ROLE_ROTATION: list[tuple[str, str]] = [
     ("Builder", "Crafter Role • +Bonus Builder XP & 1x Growtoken on first Role Quest"),
-    ("Surgeon", "Supplier Role • +Bonus Surgeon XP & 1x Growtoken on first Role Quest"),
-    ("Fishing", "Supplier Role • +Bonus Fishing XP & 1x Growtoken on first Role Quest"),
     ("Chef", "Crafter Role • +Bonus Chef XP & 1x Growtoken on first Role Quest"),
-    ("Star Captain", "Supplier Role • +Bonus Star Captain XP & 1x Growtoken on first Role Quest"),
     ("Farmer", "Supplier Role • +Bonus Farmer XP & 1x Growtoken on first Role Quest"),
+    ("Fishing", "Supplier Role • +Bonus Fishing XP & 1x Growtoken on first Role Quest"),
+    ("Star Captain", "Supplier Role • +Bonus Star Captain XP & 1x Growtoken on first Role Quest"),
+    ("Surgeon", "Supplier Role • +Bonus Surgeon XP & 1x Growtoken on first Role Quest"),
 ]
-ROLE_ANCHOR_DATE = date(2024, 12, 31)
-
-# Growtopia Daily Challenges rotation with point objectives from the Growtopia Wiki
-DAILY_CHALLENGES_ROTATION: list[tuple[str, str]] = [
-    ("Doctor's Duel", "Perform surgeries for points (+50 to +250 pts per surgery)."),
-    ("Fish Frenzy", "Catch fish for points (+1 pt per lb of fish caught)."),
-    ("Star Strife", "Complete Star Missions for points (+20 to +200 pts per mission)."),
-    ("Chef Showdown", "Cook food for points without assistance (up to +160 pts per 100% dish)."),
-    ("Crystal Crusher", "Harmonize and smash crystals (+1 to +5 pts per crystal)."),
-    ("Card Clash", "Defeat Crime-Fighting Supervillains (+50 pts per supervillain)."),
-    ("Treasure Turmoil", "Obtain Map Fragments (+1 pt) and solve Treasure Maps (+50 to +500 pts)."),
-    ("Malady Mash", "Perform surgeries on patients with a Malady (+100 to +230 pts)."),
-    ("Radiation Race", "Find Uranium Blocks in GEIGERHILLS (+1 pt per Uranium Block)."),
-    ("Chemical Conundrum", "Create Synthetic Chemicals without assistance (+100 pts each)."),
-    ("War of Wolves", "Complete WOLFWORLD parkours (+1 pt per second remaining)."),
-    ("Battler's Beatdown", "Win Pet Battles against a Pet Trainer (+1 pt per win)."),
-    ("BOO Blast", "Hit (+1 pt) and defeat (+100 pts) Boss Ghosts."),
-    ("Mutant Kitchen", "Cook Mutant Food for points without assistance (up to +160 pts)."),
-]
+ROLE_ANCHOR_DATE = date(2026, 11, 5)
 
 
 class WikiService:
@@ -69,6 +57,7 @@ class WikiService:
         self.cache_ttl = cache_ttl_seconds
         self._item_cache: dict[str, tuple[float, WikiItemResponse]] = {}
         self._manual_daily_override: dict[str, Any] = {}
+        self._latest_daily_challenge: str | None = None
 
     def fetch_item(self, query: str) -> WikiItemResponse | None:
         """Fetch item details, splice recipes, and sprites from the Growtopia Wiki."""
@@ -79,8 +68,6 @@ class WikiService:
             if now - ts < self.cache_ttl:
                 return cached
 
-        # Fetch via Fandom MediaWiki API (avoids Fandom 403 on direct /wiki/ HTML URLs)
-        # and run H-pun/growtopia-api's wiki field extractors with per-field fault tolerance.
         try:
             headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Growcom/1.0"}
             search_resp = requests.get(
@@ -105,7 +92,6 @@ class WikiService:
             if not matches:
                 return None
 
-            # Prefer exact case-insensitive match if present
             exact = [m for m in matches if m["Title"].lower() == query.strip().lower()]
             target = exact[0] if exact else matches[0]
             page_title = target["Title"]
@@ -153,7 +139,6 @@ class WikiService:
             recipes: list[str] = []
             for rb in soup.select("div.recipebox"):
                 rb_text = rb.get_text(" ", strip=True).replace("\ufffd", "x")
-                # Format Splicing recipe boxes cleanly with a '+' between the two seeds
                 seed_links = [
                     a.get_text(" ", strip=True)
                     for a in rb.select("a")
@@ -213,35 +198,6 @@ class WikiService:
         tomorrow_role, _ = ROLE_ROTATION[(idx + 1) % len(ROLE_ROTATION)]
         return today_role, today_bonus, tomorrow_role
 
-    def scrape_wiki_daily_events(self) -> dict[str, Any]:
-        """
-        Attempt to scrape the Growtopia Wiki Main Page / Daily Quest templates
-        for today's Daily Challenge and Crazy Jim's Daily Quest items.
-        """
-        result: dict[str, Any] = {
-            "daily_challenge": None,
-            "daily_quest_items": [],
-        }
-        try:
-            resp = requests.get(
-                "https://growtopia.fandom.com/api.php",
-                params={"action": "parse", "page": "Main_Page", "prop": "text", "format": "json"},
-                timeout=8,
-                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Growcom/1.0"},
-            )
-            if resp.status_code != 200:
-                return result
-            html_raw = resp.json().get("parse", {}).get("text", {}).get("*", "")
-            soup = BeautifulSoup(html_raw, "html.parser")
-            text_blob = soup.get_text("\n", strip=True)
-
-            dc_match = re.search(r"Daily Challenge[:\s]+([^\n]+)", text_blob, re.IGNORECASE)
-            if dc_match:
-                result["daily_challenge"] = dc_match.group(1).strip()
-        except Exception as exc:
-            logger.debug("Main page scrape skipped: %s", exc)
-        return result
-
     def set_daily_override(
         self,
         *,
@@ -249,13 +205,14 @@ class WikiService:
         quest_items: list[tuple[str, int]] | None = None,
         role_day: str | None = None,
     ) -> None:
-        """Allow staff or automated webhook feeds to update today's Daily Quest & Challenge."""
+        """Allow staff or automated webhook feeds (#dq-feed and #⚔️daily-challenges) to update today's state."""
         gt_today = self._current_gt_date().isoformat()
         if self._manual_daily_override.get("date") != gt_today:
             self._manual_daily_override = {"date": gt_today}
 
         if daily_challenge:
             self._manual_daily_override["daily_challenge"] = daily_challenge
+            self._latest_daily_challenge = daily_challenge
 
         if quest_items is not None:
             enriched: list[DailyQuestItem] = []
@@ -329,35 +286,28 @@ class WikiService:
         gt_date_obj = self._current_gt_date()
         today_role, today_bonus, tomorrow_role = self.get_role_day_for_date(gt_date_obj)
 
-        # Fetch live WOTD + online player count with a proper User-Agent
         game_data = self._fetch_game_status()
         online_users = game_data.get("Online_User") or "N/A"
         wotd_name = game_data.get("WOTDName") or "N/A"
         wotd_link = game_data.get("WOTDLink") or ""
         gt_time_str = datetime.now(ZoneInfo("America/New_York")).strftime("%H:%M:%S")
 
-        scraped = self.scrape_wiki_daily_events()
         is_same_day = self._manual_daily_override.get("date") == gt_date_obj.isoformat()
-
-        delta_days = (gt_date_obj - ROLE_ANCHOR_DATE).days
-        dc_name, dc_desc = DAILY_CHALLENGES_ROTATION[delta_days % len(DAILY_CHALLENGES_ROTATION)]
-        default_dc = f"{dc_name} — {dc_desc}"
 
         daily_challenge = (
             (self._manual_daily_override.get("daily_challenge") if is_same_day else None)
-            or scraped.get("daily_challenge")
-            or default_dc
+            or self._latest_daily_challenge
+            or "⏳ Rotating 25-Hour Event — Syncing from #⚔️daily-challenges..."
         )
 
         dq_items: list[DailyQuestItem] = (
             (self._manual_daily_override.get("daily_quest_items") if is_same_day else None)
-            or scraped.get("daily_quest_items")
             or []
         )
         dq_source = (
             self._manual_daily_override.get("source", "auto")
             if is_same_day and dq_items
-            else ("wiki" if dq_items else "pending_reset")
+            else "pending_reset"
         )
 
         return DailyStatusResponse(
