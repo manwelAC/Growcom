@@ -33,6 +33,8 @@ DQ_FEED_CHANNEL_ID = 1567206278697062440
 READ_ONLY_CHANNEL_SLUGS = (
     "trading-info",
     "scammer-alert",
+    "tool-guide",
+    "total-rating",
     "undermaintenance",
     "daily-announcements",
     "new-items",
