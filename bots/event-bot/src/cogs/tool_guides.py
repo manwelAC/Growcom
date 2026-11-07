@@ -211,21 +211,23 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
         ),
     },
     {
-        "title": "🚀 Tool 11/11 — Star Captain & Bridge Station Guide (`/startrek`)",
+        "title": "🚀 Tool 11/11 — Startopia 2.0 Voyage & Ship Guide (`/startrek`)",
         "color": 0x8E44AD,
         "channel": "<#1567240655774941264>",
         "purpose": (
-            "Explains all **6 Starship Bridge Stations** (*Helm, Tactical, Science, Engineering, Medical, Communications*) "
-            "and Sector Encounter rewards."
+            "Complete **Startopia 2.0 Ship & Voyage Solver** based on the official Growtopia Wiki! Shows the exact "
+            "**step-by-step Star Tool sequence** for all **46+ Star Voyages** (plus Mid-Voyage Encounter popups, "
+            "Starship equipment ratings, and **Growlactus / Ascended / Descended** sector guides)."
         ),
         "how_to_use": (
             "1. Go to <#1567240655774941264> and type **`/startrek`**.\n"
-            "2. Select your Bridge Station or Sector Encounter from the list."
+            "2. Type the **Mission Name** shown on your Starship Helm (or select **`Ship Setup & Sector Guide`**).\n"
+            "3. Click the buttons at the bottom for **Mid-Voyage Encounters** or **Low Hull/Crew/Rep fixes**!"
         ),
         "examples": (
-            "- `/startrek station_or_sector:Tactical`\n"
-            "- `/startrek station_or_sector:Helm`\n"
-            "- `/startrek station_or_sector:Sector Encounters`"
+            "- `/startrek station_or_sector:Parasite Hunt`\n"
+            "- `/startrek station_or_sector:Growlactus (Boss Voyage)`\n"
+            "- `/startrek station_or_sector:Ship Setup & Sector Guide (Startopia 2.0)`"
         ),
     },
 ]
