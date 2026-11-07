@@ -18,5 +18,8 @@
   "startrek_channel_id": 1567240655774941264,
   "vouch_channel_id": "1568494512945373307",
   "scammer_alert_channel_id": "1568494517340868790",
-  "scammer_review_channel_id": "1568494522638536735"
+  "scammer_review_channel_id": "1568494522638536735",
+  "member_role_id": "1568495447067332608",
+  "verify_channel_id": "1568496584596136047",
+  "verify_message_id": "1568496589478166602"
 }
