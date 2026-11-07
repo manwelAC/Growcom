@@ -433,16 +433,7 @@ class ServerFeedbackCog(commands.Cog):
 
         state["feedback_channel_id"] = str(rating_ch.id)
 
-        # 2. Find or create the bottom-most public category (or place at the very end) for the locked Total Ratings channels!
-        # Let's check the last non-staff category in the server so it sits at the very end of the channel list!
-        bottom_cat: discord.CategoryChannel | None = None
-        non_staff_cats = [
-            c for c in sorted(guild.categories, key=lambda x: x.position)
-            if "staff" not in c.name.lower() and "admin" not in c.name.lower()
-        ]
-        if non_staff_cats:
-            bottom_cat = non_staff_cats[-1]
-
+        # 2. Place the locked Total Ratings channels outside of any category (standalone)
         locked_text_overwrites: dict[discord.Role | discord.Member, discord.PermissionOverwrite] = {
             everyone_role: discord.PermissionOverwrite(
                 view_channel=False,
@@ -484,23 +475,23 @@ class ServerFeedbackCog(commands.Cog):
         if not total_ch:
             total_ch = await guild.create_text_channel(
                 name="🔒📊total-ratings",
-                category=bottom_cat,
+                category=None,
                 topic="🔒 Locked Official Growcom Total Ratings Dashboard — Automatically updated whenever a member rates in #⭐server-ratings!",
                 overwrites=locked_text_overwrites,
-                reason="Locked Total Ratings dashboard channel at the very end",
+                reason="Locked Total Ratings dashboard channel outside any category",
             )
             dash_msg = await total_ch.send(embed=dash_embed)
             state["total_ratings_message_id"] = str(dash_msg.id)
         else:
             await total_ch.edit(
-                category=bottom_cat,
+                category=None,
                 overwrites=locked_text_overwrites,
-                reason="Ensure #🔒📊total-ratings is locked and at the bottom category",
+                reason="Ensure #🔒📊total-ratings is locked and outside any category",
             )
 
         state["total_ratings_channel_id"] = str(total_ch.id)
 
-        # 3. Also create a Locked Voice Channel Counter right below it at the very end so the 🔒 Padlock icon + Total Rating shows in the sidebar!
+        # 3. Also create a Locked Voice Channel Counter standalone outside any category
         locked_vc_overwrites: dict[discord.Role | discord.Member, discord.PermissionOverwrite] = {
             everyone_role: discord.PermissionOverwrite(
                 view_channel=False,
@@ -540,15 +531,15 @@ class ServerFeedbackCog(commands.Cog):
         if not total_vc:
             total_vc = await guild.create_voice_channel(
                 name=vc_name,
-                category=bottom_cat,
+                category=None,
                 overwrites=locked_vc_overwrites,
-                reason="Locked Total Ratings sidebar counter at the very end",
+                reason="Locked Total Ratings sidebar counter outside any category",
             )
         else:
             await total_vc.edit(
-                category=bottom_cat,
+                category=None,
                 overwrites=locked_vc_overwrites,
-                reason="Sync locked Total Ratings VC counter",
+                reason="Sync locked Total Ratings VC counter outside any category",
             )
 
         state["total_ratings_vc_id"] = str(total_vc.id)
