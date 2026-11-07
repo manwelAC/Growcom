@@ -15,5 +15,8 @@
   "cook_channel_id": 1567238220972826654,
   "crime_channel_id": 1567240061320171713,
   "fish_channel_id": 1567240147576291389,
-  "startrek_channel_id": 1567240655774941264
+  "startrek_channel_id": 1567240655774941264,
+  "vouch_channel_id": "1568494512945373307",
+  "scammer_alert_channel_id": "1568494517340868790",
+  "scammer_review_channel_id": "1568494522638536735"
 }
