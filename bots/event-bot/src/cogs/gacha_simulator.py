@@ -53,7 +53,7 @@ EMBED_DESC_SAFE_LIMIT = 3900  # Discord hard limit is 4096
 GROWCOM_POINTS_TIER: dict[str, int] = {
     "MYTHIC": 10000,
     "ULTRA RARE": 1000,
-    "SUPER RARE": 100,
+    "SUPER RARE": 50,
     "RARE": 25,
     "UNCOMMON": 5,
     "COMMON": 1,
