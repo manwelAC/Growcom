@@ -8,7 +8,9 @@
       "mythics": 0,
       "ultra_rares": 1,
       "best_drop": "Golden Angel Wings",
-      "best_wl": 1800
+      "best_wl": 1800,
+      "points": 2515,
+      "best_gp": 1800
     },
     "702337131640651806": {
       "name": "Solomon",
@@ -18,7 +20,9 @@
       "mythics": 0,
       "ultra_rares": 1,
       "best_drop": "Golden Angel Wings",
-      "best_wl": 1800
+      "best_wl": 1800,
+      "points": 2963,
+      "best_gp": 1800
     },
     "545896814402994178": {
       "name": "Average_Kirk",
@@ -28,7 +32,9 @@
       "mythics": 0,
       "ultra_rares": 0,
       "best_drop": "Heartbow",
-      "best_wl": 85
+      "best_wl": 85,
+      "points": 100,
+      "best_gp": 85
     },
     "629964300202803200": {
       "name": "0vov.",
@@ -38,7 +44,9 @@
       "mythics": 0,
       "ultra_rares": 0,
       "best_drop": "Ruby Lock",
-      "best_wl": 15
+      "best_wl": 15,
+      "points": 27,
+      "best_gp": 15
     }
   },
   "summer_fireworks": {
@@ -50,7 +58,9 @@
       "mythics": 0,
       "ultra_rares": 0,
       "best_drop": "Summer Surprise",
-      "best_wl": 22
+      "best_wl": 22,
+      "points": 329,
+      "best_gp": 22
     },
     "702337131640651806": {
       "name": "Solomon",
@@ -60,7 +70,9 @@
       "mythics": 1,
       "ultra_rares": 1,
       "best_drop": "Phoenix Wings",
-      "best_wl": 22000
+      "best_wl": 22000,
+      "points": 26365,
+      "best_gp": 22000
     },
     "604612739310288896": {
       "name": "Cedddd",
@@ -70,7 +82,9 @@
       "mythics": 0,
       "ultra_rares": 1,
       "best_drop": "Phoenix Pacifier",
-      "best_wl": 3200
+      "best_wl": 3200,
+      "points": 3482,
+      "best_gp": 3200
     },
     "992468725510963231": {
       "name": "| Stupidify |",
@@ -80,7 +94,9 @@
       "mythics": 0,
       "ultra_rares": 0,
       "best_drop": "Summer Surprise",
-      "best_wl": 22
+      "best_wl": 22,
+      "points": 60,
+      "best_gp": 22
     }
   },
   "halloween_growganoth": {
@@ -92,7 +108,9 @@
       "mythics": 0,
       "ultra_rares": 1,
       "best_drop": "Devil Wings",
-      "best_wl": 2400
+      "best_wl": 2400,
+      "points": 2986,
+      "best_gp": 2400
     }
   },
   "winter_wish": {
@@ -104,7 +122,9 @@
       "mythics": 0,
       "ultra_rares": 0,
       "best_drop": "Snowy Night Cloak",
-      "best_wl": 110
+      "best_wl": 110,
+      "points": 170,
+      "best_gp": 110
     }
   },
   "lunar_well": {
@@ -116,7 +136,9 @@
       "mythics": 0,
       "ultra_rares": 0,
       "best_drop": "Lunar Silk Robe",
-      "best_wl": 115
+      "best_wl": 115,
+      "points": 654,
+      "best_gp": 115
     },
     "604612739310288896": {
       "name": "Cedddd",
@@ -126,7 +148,9 @@
       "mythics": 0,
       "ultra_rares": 0,
       "best_drop": "Lucky Lantern",
-      "best_wl": 5
+      "best_wl": 5,
+      "points": 36,
+      "best_gp": 5
     }
   }
 }

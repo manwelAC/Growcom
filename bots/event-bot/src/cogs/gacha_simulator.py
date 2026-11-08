@@ -50,6 +50,23 @@ PILL_LINK_SIM = "https://discord.com/channels/1567168949584658534/15689072538541
 PILL_LINK_BOARD = "https://discord.com/channels/1567168949584658534/1568907256467169381"
 EMBED_DESC_SAFE_LIMIT = 3900  # Discord hard limit is 4096
 
+GROWCOM_POINTS_TIER: dict[str, int] = {
+    "MYTHIC": 10000,
+    "ULTRA RARE": 1000,
+    "SUPER RARE": 100,
+    "RARE": 25,
+    "UNCOMMON": 5,
+    "COMMON": 1,
+}
+
+
+def get_item_gp(item: dict[str, Any]) -> int:
+    """Return Growcom Points (GP) for an item based on its explicit gp_value or rarity tier."""
+    if "gp_value" in item and int(item["gp_value"]) > 0:
+        return int(item["gp_value"])
+    st = str(item.get("short_tier") or "COMMON").upper()
+    return GROWCOM_POINTS_TIER.get(st, 1)
+
 
 # Official 2024–2026 Growtopia Wiki (growtopiawiki.com) Gacha Pools (40 items per pool, summing to 100.00% weight)
 GACHA_POOLS: dict[str, dict[str, Any]] = {
@@ -377,29 +394,29 @@ def _clean_ascii_name(raw_name: str, max_len: int = 14) -> str:
 def build_category_leaderboard_embed(pool_key: str, cat_stats: dict[str, dict[str, Any]]) -> discord.Embed:
     """
     Build the sleek Pill-Row Table Leaderboard (matching the Mr. Pulsar reference):
-    - Bold inline-code header pill: **`Rank  User            Mythic   Won (WL)    Rolls`**
-    - Cyan linked inline-code row pills: [`#1    Manwel          0 (0U)   436 WL      50   `](https://...)
+    - Bold inline-code header pill: **`Rank  User          Mythic   Growcom Pts  Rolls `**
+    - Cyan linked inline-code row pills: [`#1    Manwel        0 (0U)   2,515 GP     140   `](https://...)
     """
     pool = GACHA_POOLS[pool_key]
     r, g, b = pool["color"]
 
     total_cat_rolls = sum(int(v.get("rolls", 0)) for v in cat_stats.values())
     total_cat_mythics = sum(int(v.get("mythics", 0)) for v in cat_stats.values())
-    total_cat_won = sum(int(v.get("won_wl", 0)) for v in cat_stats.values())
+    total_cat_gp = sum(int(v.get("points") or v.get("won_wl") or 0) for v in cat_stats.values())
 
-    header_pill = "**`Rank  User            Mythic   Won (WL)    Rolls`**"
+    header_pill = "**`Rank  User          Mythic   Growcom Pts  Rolls `**"
     rows: list[str] = [header_pill]
 
     if not cat_stats:
-        empty_pill = f"[`#--   No pulls yet    0 (0U)   0 WL        0    `]({PILL_LINK_SIM})"
+        empty_pill = f"[`#--   No pulls yet  0 (0U)   0 GP         0     `]({PILL_LINK_SIM})"
         rows.append(empty_pill)
     else:
         sorted_players = sorted(
             cat_stats.items(),
             key=lambda kv: (
                 int(kv[1].get("mythics", 0)),
-                int(kv[1].get("won_wl", 0)),
-                int(kv[1].get("won_wl", 0)) - int(kv[1].get("spent_wl", 0)),
+                int(kv[1].get("points") or kv[1].get("won_wl") or 0),
+                int(kv[1].get("rolls", 0)),
             ),
             reverse=True,
         )[:10]
@@ -409,27 +426,26 @@ def build_category_leaderboard_embed(pool_key: str, cat_stats: dict[str, dict[st
             raw_name = str(pdata.get("name") or f"User-{str(uid)[-4:]}")
             user_col = _clean_ascii_name(raw_name, 14)
             rolls = int(pdata.get("rolls", 0))
-            spent = int(pdata.get("spent_wl", 0))
-            won = int(pdata.get("won_wl", 0))
+            points = int(pdata.get("points") or pdata.get("won_wl") or 0)
             mythics = int(pdata.get("mythics", 0))
             ultras = int(pdata.get("ultra_rares", 0))
             best_drop = str(pdata.get("best_drop", "None"))
-            best_wl = int(pdata.get("best_wl", 0))
+            best_gp = int(pdata.get("best_gp") or pdata.get("best_wl") or 0)
 
             mythic_col = f"{mythics} ({ultras}U)"
-            won_col = f"{won:,} WL"
+            gp_col = f"{points:,} GP"
             rolls_col = f"{rolls:,}"
 
             row_text = (
                 f"{rank_col:<6}"
-                f"{user_col:<16}"
+                f"{user_col:<14}"
                 f"{mythic_col:<9}"
-                f"{won_col:<12}"
-                f"{rolls_col:<5}"
+                f"{gp_col:<13}"
+                f"{rolls_col:<6}"
             )
             frag = (
                 f"uid={uid}&name={quote(user_col)}&m={mythics}&u={ultras}"
-                f"&won={won}&spent={spent}&rolls={rolls}&best={quote(best_drop)}&bwl={best_wl}"
+                f"&gp={points}&won={points}&spent={rolls * 5}&rolls={rolls}&best={quote(best_drop)}&bgp={best_gp}"
             )
             url = f"{PILL_LINK_SIM}#{frag}"
             rows.append(f"[`{row_text}`]({url})")
@@ -439,9 +455,9 @@ def build_category_leaderboard_embed(pool_key: str, cat_stats: dict[str, dict[st
         title=f"{pool['emoji']} {pool['name']}",
         description=(
             f"{pool['banner_desc']}\n"
-            f"🎯 **Jackpots:** `{pool['jackpot_item']}`  •  💰 **Cost:** `{pool['cost_wl']} WL/roll`  •  "
+            f"🎯 **Jackpots:** `{pool['jackpot_item']}`  •  💰 **Rewards:** `Growcom Points (GP)`  •  "
             f"🎲 **Total Rolls:** `{total_cat_rolls:,}`\n\n"
-            f"🏆 **{pool['short_name']} Leaderboard ({total_cat_mythics} Jackpots • {total_cat_won:,} WL Won)**\n"
+            f"🏆 **{pool['short_name']} Leaderboard ({total_cat_mythics} Jackpots • {total_cat_gp:,} Total GP)**\n"
             f"{table_section}"
         ),
         color=discord.Color.from_rgb(r, g, b),
@@ -589,11 +605,11 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
                         pname = unquote((qs.get("name") or ["Player"])[0])
                         mythics = int((qs.get("m") or ["0"])[0])
                         ultras = int((qs.get("u") or ["0"])[0])
-                        won = int((qs.get("won") or ["0"])[0])
-                        spent = int((qs.get("spent") or ["0"])[0])
+                        gp = int((qs.get("gp") or qs.get("won") or ["0"])[0])
+                        spent = int((qs.get("spent") or [str(rolls * 5)])[0])
                         rolls = int((qs.get("rolls") or ["0"])[0])
                         best_drop = unquote((qs.get("best") or ["None"])[0])
-                        best_wl = int((qs.get("bwl") or ["0"])[0])
+                        best_gp = int((qs.get("bgp") or qs.get("bwl") or ["0"])[0])
 
                         cat_bucket = stats.setdefault(matched_pool_key, {})
                         existing = cat_bucket.get(uid)
@@ -601,12 +617,14 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
                             cat_bucket[uid] = {
                                 "name": pname,
                                 "rolls": rolls,
-                                "spent_wl": spent,
-                                "won_wl": won,
+                                "points": gp,
                                 "mythics": mythics,
                                 "ultra_rares": ultras,
                                 "best_drop": best_drop,
-                                "best_wl": best_wl,
+                                "best_gp": best_gp,
+                                "spent_wl": spent,
+                                "won_wl": gp,
+                                "best_wl": best_gp,
                             }
             save_gacha_stats(stats)
         except Exception as exc:
@@ -717,19 +735,19 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
         weights = [float(d["weight"]) for d in drops_list]
 
         rolled_items = random.choices(drops_list, weights=weights, k=count)
-
-        spent_wl = count * int(pool["cost_wl"])
-        won_wl = sum(int(d["wl_value"]) for d in rolled_items)
-        net_wl = won_wl - spent_wl
+        earned_gp = sum(get_item_gp(d) for d in rolled_items)
 
         tally: dict[str, dict[str, Any]] = {}
         mythics_pulled = 0
         ultras_pulled = 0
         best_single_item = rolled_items[0]
+        best_single_gp = get_item_gp(rolled_items[0])
         pulled_mythic_names: list[str] = []
 
         for item in rolled_items:
-            if int(item["wl_value"]) > int(best_single_item["wl_value"]):
+            igp = get_item_gp(item)
+            if igp > best_single_gp:
+                best_single_gp = igp
                 best_single_item = item
             if "MYTHIC" in item["rarity_tier"]:
                 mythics_pulled += 1
@@ -742,7 +760,7 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
                 item["name"],
                 {
                     "count": 0,
-                    "wl_value": int(item["wl_value"]),
+                    "gp_value": igp,
                     "rarity_tier": item["rarity_tier"],
                     "short_tier": item.get("short_tier", "COMMON"),
                     "emoji": item["emoji"],
@@ -759,23 +777,29 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
             {
                 "name": interaction.user.display_name,
                 "rolls": 0,
-                "spent_wl": 0,
-                "won_wl": 0,
+                "points": 0,
                 "mythics": 0,
                 "ultra_rares": 0,
                 "best_drop": "None",
+                "best_gp": 0,
+                "spent_wl": 0,
+                "won_wl": 0,
                 "best_wl": 0,
             },
         )
         pstats["name"] = interaction.user.display_name
         pstats["rolls"] = int(pstats.get("rolls", 0)) + count
-        pstats["spent_wl"] = int(pstats.get("spent_wl", 0)) + spent_wl
-        pstats["won_wl"] = int(pstats.get("won_wl", 0)) + won_wl
+        current_pts = int(pstats.get("points") or pstats.get("won_wl") or 0)
+        pstats["points"] = current_pts + earned_gp
         pstats["mythics"] = int(pstats.get("mythics", 0)) + mythics_pulled
         pstats["ultra_rares"] = int(pstats.get("ultra_rares", 0)) + ultras_pulled
-        if int(best_single_item["wl_value"]) >= int(pstats.get("best_wl", 0)):
-            pstats["best_wl"] = int(best_single_item["wl_value"])
+        if best_single_gp >= int(pstats.get("best_gp") or pstats.get("best_wl") or 0):
+            pstats["best_gp"] = best_single_gp
             pstats["best_drop"] = best_single_item["name"]
+
+        pstats["spent_wl"] = int(pstats.get("spent_wl", 0)) + count * int(pool.get("cost_wl", 5))
+        pstats["won_wl"] = pstats["points"]
+        pstats["best_wl"] = pstats["best_gp"]
 
         save_gacha_stats(stats)
 
@@ -784,31 +808,28 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
         if mythics_pulled > 0:
             r, g, b = (255, 215, 0)
 
-        sorted_tally = sorted(tally.items(), key=lambda kv: kv[1]["wl_value"], reverse=True)
-        u_rows: list[str] = ["**`Qty    Item Unboxed            Tier         Value   `**"]
+        sorted_tally = sorted(tally.items(), key=lambda kv: (kv[1]["gp_value"], kv[1]["count"]), reverse=True)
+        u_rows: list[str] = ["**`Qty    Item Unboxed          Tier         Growcom Pts`**"]
         shown_limit = 20
         for iname, info in sorted_tally[:shown_limit]:
-            sub_val = info["count"] * info["wl_value"]
+            sub_gp = info["count"] * info["gp_value"]
             qty_col = f"{info['count']}x"
-            item_col = _clean_ascii_name(iname, 22)
+            item_col = _clean_ascii_name(iname, 20)
             tier_col = _clean_ascii_name(info.get("short_tier", "COMMON"), 11)
-            val_col = f"{sub_val:,} WL"
-            row_txt = f"{qty_col:<7}{item_col:<24}{tier_col:<13}{val_col:<8}"
+            gp_col = f"+{sub_gp:,} GP"
+            row_txt = f"{qty_col:<7}{item_col:<22}{tier_col:<13}{gp_col:<11}"
             u_rows.append(f"[`{row_txt}`]({PILL_LINK_BOARD})")
 
         if len(sorted_tally) > shown_limit:
             rem_items = sorted_tally[shown_limit:]
             rem_qty = sum(info["count"] for _, info in rem_items)
-            rem_val = sum(info["count"] * info["wl_value"] for _, info in rem_items)
-            more_txt = f"+{rem_qty}x   ({len(rem_items)} more items)          COMMON/UNC   {rem_val:,} WL"
-            u_rows.append(f"[`{more_txt:<52}`]({PILL_LINK_BOARD})")
+            rem_gp = sum(info["count"] * info["gp_value"] for _, info in rem_items)
+            more_txt = f"+{rem_qty}x   ({len(rem_items)} more items)       COMMON/UNC   +{rem_gp:,} GP"
+            u_rows.append(f"[`{more_txt:<53}`]({PILL_LINK_BOARD})")
 
         # Safety net: never let the description exceed Discord's 4096-char limit (drops lowest-value rows first)
         while len("\n".join(u_rows)) > EMBED_DESC_SAFE_LIMIT - 600 and len(u_rows) > 2:
             u_rows.pop(-2 if len(sorted_tally) > shown_limit else -1)
-
-        net_emoji = "📈" if net_wl >= 0 else "📉"
-        net_str = f"+{net_wl:,} WL" if net_wl >= 0 else f"{net_wl:,} WL"
 
         jackpot_banner = ""
         if mythics_pulled > 0:
@@ -824,17 +845,14 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
             description=(
                 f"{jackpot_banner}"
                 f"👤 **Roller:** <@{interaction.user.id}>\n"
-                f"💸 **Spent:** `{spent_wl:,} WL`  •  💎 **Value Unboxed:** `{won_wl:,} WL`  •  "
-                f"{net_emoji} **Net Profit:** `{net_str}`\n\n"
-                f"🎁 **Items Unboxed ({len(sorted_tally)} Unique Drops from {len(pool['drops'])}-Item Wiki Pool)**\n"
+                f"🎯 **Points Earned:** `+{earned_gp:,} Growcom Points`  •  🎲 **Items Rolled:** `{count}`\n\n"
+                f"📦 **Items Unboxed ({len(sorted_tally)} Unique Drops from {len(pool['drops'])}-Item Wiki Pool)**\n"
                 f"{unbox_block}"
             ),
             color=discord.Color.from_rgb(r, g, b),
             timestamp=datetime.now(EVENT_TZ),
         )
 
-        lifetime_net = int(pstats["won_wl"]) - int(pstats["spent_wl"])
-        lifetime_net_str = f"+{lifetime_net:,} WL" if lifetime_net >= 0 else f"{lifetime_net:,} WL"
         lb_ch_id = state.get("gacha_leaderboard_channel_id")
         lb_mention = f"<#{lb_ch_id}>" if lb_ch_id else "`#🏆gacha-leaderboards`"
 
@@ -842,7 +860,7 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
             name=f"📊 Your Lifetime {pool['short_name']} Stats (Synced to {lb_mention})",
             value=(
                 f"• **Total Rolls:** `{pstats['rolls']:,}`  •  **Mythic Jackpots:** `{pstats['mythics']}` (`{pstats['ultra_rares']}` Ultra)\n"
-                f"• **Lifetime Won:** `{pstats['won_wl']:,} WL` (`Net: {lifetime_net_str}`)  •  **Best Pull:** `{pstats['best_drop']}`"
+                f"• **Lifetime Growcom Points:** `{pstats['points']:,} GP`  •  **Best Pull:** `{pstats['best_drop']}`"
             ),
             inline=False,
         )
