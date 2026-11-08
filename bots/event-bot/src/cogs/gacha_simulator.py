@@ -380,22 +380,11 @@ def build_category_leaderboard_embed(pool_key: str, cat_stats: dict[str, dict[st
     total_cat_mythics = sum(int(v.get("mythics", 0)) for v in cat_stats.values())
     total_cat_won = sum(int(v.get("won_wl", 0)) for v in cat_stats.values())
 
-    embed = discord.Embed(
-        title=f"{pool['emoji']} {pool['name']}",
-        description=(
-            f"{pool['banner_desc']}\n"
-            f"🎯 **Jackpots:** `{pool['jackpot_item']}`  •  💰 **Cost:** `{pool['cost_wl']} WL/roll`  •  "
-            f"🎲 **Total Rolls:** `{total_cat_rolls:,}`"
-        ),
-        color=discord.Color.from_rgb(r, g, b),
-        timestamp=datetime.now(EVENT_TZ),
-    )
-
     header_pill = "**`Rank  User            Mythic   Won (WL)    Rolls`**"
     rows: list[str] = [header_pill]
 
     if not cat_stats:
-        empty_pill = "[`#--   No pulls yet    0 (0U)   0 WL        0    `](https://discord.com/channels/1567168949584658534/1568907253854113855)"
+        empty_pill = "[`#--   No pulls yet    0 (0U)   0 WL        0    `](https://gt.com)"
         rows.append(empty_pill)
     else:
         sorted_players = sorted(
@@ -435,13 +424,21 @@ def build_category_leaderboard_embed(pool_key: str, cat_stats: dict[str, dict[st
                 f"uid={uid}&name={quote(user_col)}&m={mythics}&u={ultras}"
                 f"&won={won}&spent={spent}&rolls={rolls}&best={quote(best_drop)}&bwl={best_wl}"
             )
-            url = f"https://discord.com/channels/1567168949584658534/1568907253854113855#{frag}"
+            url = f"https://gt.com#{frag}"
             rows.append(f"[`{row_text}`]({url})")
 
-    embed.add_field(
-        name=f"🏆 {pool['short_name']} Leaderboard ({total_cat_mythics} Jackpots • {total_cat_won:,} WL Won)",
-        value="\n".join(rows),
-        inline=False,
+    table_section = "\n".join(rows)
+    embed = discord.Embed(
+        title=f"{pool['emoji']} {pool['name']}",
+        description=(
+            f"{pool['banner_desc']}\n"
+            f"🎯 **Jackpots:** `{pool['jackpot_item']}`  •  💰 **Cost:** `{pool['cost_wl']} WL/roll`  •  "
+            f"🎲 **Total Rolls:** `{total_cat_rolls:,}`\n\n"
+            f"🏆 **{pool['short_name']} Leaderboard ({total_cat_mythics} Jackpots • {total_cat_won:,} WL Won)**\n"
+            f"{table_section}"
+        ),
+        color=discord.Color.from_rgb(r, g, b),
+        timestamp=datetime.now(EVENT_TZ),
     )
 
     embed.set_footer(text=f"{FOOTER_TEXT} • {len(pool['drops'])}-Item Wiki Pool • Auto-Synced Live from #🎰gacha-simulator")
@@ -572,8 +569,9 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
                     state["gacha_leaderboard_message_ids"] = msg_map
                     save_state(state)
 
-                for field in emb.fields:
-                    for line in (field.value or "").splitlines():
+                text_blocks = [emb.description or ""] + [f.value or "" for f in emb.fields]
+                for block in text_blocks:
+                    for line in block.splitlines():
                         m_frag = frag_pattern.search(line)
                         if not m_frag:
                             continue
@@ -771,16 +769,22 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
 
         sorted_tally = sorted(tally.items(), key=lambda kv: kv[1]["wl_value"], reverse=True)
         u_rows: list[str] = ["**`Qty    Item Unboxed            Tier         Value   `**"]
-        for iname, info in sorted_tally[:15]:
+        shown_limit = 25
+        for iname, info in sorted_tally[:shown_limit]:
             sub_val = info["count"] * info["wl_value"]
             qty_col = f"{info['count']}x"
             item_col = _clean_ascii_name(iname, 22)
             tier_col = _clean_ascii_name(info.get("short_tier", "COMMON"), 11)
             val_col = f"{sub_val:,} WL"
             row_txt = f"{qty_col:<7}{item_col:<24}{tier_col:<13}{val_col:<8}"
-            u_rows.append(
-                f"[`{row_txt}`](https://discord.com/channels/1567168949584658534/1568907256467169381)"
-            )
+            u_rows.append(f"[`{row_txt}`](https://gt.com)")
+
+        if len(sorted_tally) > shown_limit:
+            rem_items = sorted_tally[shown_limit:]
+            rem_qty = sum(info["count"] for _, info in rem_items)
+            rem_val = sum(info["count"] * info["wl_value"] for _, info in rem_items)
+            more_txt = f"+{rem_qty}x   ({len(rem_items)} more items)          COMMON/UNC   {rem_val:,} WL"
+            u_rows.append(f"[`{more_txt:<52}`](https://gt.com)")
 
         net_emoji = "📈" if net_wl >= 0 else "📉"
         net_str = f"+{net_wl:,} WL" if net_wl >= 0 else f"{net_wl:,} WL"
@@ -793,21 +797,19 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
                 f"**`{mythics_pulled}x` {mythic_names_str}**!!\n\n"
             )
 
+        unbox_block = "\n".join(u_rows)
         embed = discord.Embed(
             title=f"{pool['emoji']} {pool['name']} — {count}x Gacha Roll",
             description=(
                 f"{jackpot_banner}"
                 f"👤 **Roller:** <@{interaction.user.id}>\n"
                 f"💸 **Spent:** `{spent_wl:,} WL`  •  💎 **Value Unboxed:** `{won_wl:,} WL`  •  "
-                f"{net_emoji} **Net Profit:** `{net_str}`"
+                f"{net_emoji} **Net Profit:** `{net_str}`\n\n"
+                f"🎁 **Items Unboxed ({len(sorted_tally)} Unique Drops from {len(pool['drops'])}-Item Wiki Pool)**\n"
+                f"{unbox_block}"
             ),
             color=discord.Color.from_rgb(r, g, b),
             timestamp=datetime.now(EVENT_TZ),
-        )
-        embed.add_field(
-            name=f"🎁 Items Unboxed ({len(sorted_tally)} Unique Drops from {len(pool['drops'])}-Item Wiki Pool)",
-            value="\n".join(u_rows),
-            inline=False,
         )
 
         lifetime_net = int(pstats["won_wl"]) - int(pstats["spent_wl"])
