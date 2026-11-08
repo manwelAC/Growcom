@@ -333,6 +333,16 @@ GACHA_POOLS: dict[str, dict[str, Any]] = {
     },
 }
 
+GACHA_FULL_POOLS_FILE = PROJECT_ROOT / "bots" / "event-bot" / "data" / "gacha_pools_full.json"
+if GACHA_FULL_POOLS_FILE.exists():
+    try:
+        _full_data = json.loads(GACHA_FULL_POOLS_FILE.read_text(encoding="utf-8"))
+        for _pk, _drops in _full_data.items():
+            if _pk in GACHA_POOLS and isinstance(_drops, list) and len(_drops) > 40:
+                GACHA_POOLS[_pk]["drops"] = _drops
+    except Exception as _exc:
+        logger.warning("Failed to load gacha_pools_full.json: %s", _exc)
+
 
 def load_gacha_stats() -> dict[str, dict[str, dict[str, Any]]]:
     if GACHA_STATS_FILE.exists():
@@ -434,7 +444,7 @@ def build_category_leaderboard_embed(pool_key: str, cat_stats: dict[str, dict[st
         inline=False,
     )
 
-    embed.set_footer(text=f"{FOOTER_TEXT} • 40-Item 2026 Pool • Auto-Synced Live from #🎰gacha-simulator")
+    embed.set_footer(text=f"{FOOTER_TEXT} • {len(pool['drops'])}-Item Wiki Pool • Auto-Synced Live from #🎰gacha-simulator")
     return embed
 
 
@@ -795,7 +805,7 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
             timestamp=datetime.now(EVENT_TZ),
         )
         embed.add_field(
-            name=f"🎁 Items Unboxed ({len(sorted_tally)} Unique Drops from 40-Item Pool)",
+            name=f"🎁 Items Unboxed ({len(sorted_tally)} Unique Drops from {len(pool['drops'])}-Item Wiki Pool)",
             value="\n".join(u_rows),
             inline=False,
         )
@@ -813,7 +823,7 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
             ),
             inline=False,
         )
-        embed.set_footer(text=f"{FOOTER_TEXT} • 2026 Growtopia Wiki Pool (40 Items/Event) • 1-Minute Cooldown")
+        embed.set_footer(text=f"{FOOTER_TEXT} • Full {len(pool['drops'])}-Item Growtopia Wiki Pool • 1-Minute Cooldown")
 
         await interaction.followup.send(embed=embed, view=GachaQuickRollView(self))
 
