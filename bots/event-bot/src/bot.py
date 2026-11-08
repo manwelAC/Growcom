@@ -39,6 +39,9 @@ logging.basicConfig(
 )
 
 USER_COOLDOWN_SECONDS = int(os.getenv("COMMAND_COOLDOWN_SECONDS", "120"))
+COMMAND_COOLDOWN_OVERRIDES: dict[str, int] = {
+    "gacha": 60,  # 1-minute cooldown for the Gacha Simulator
+}
 
 COMMAND_CHANNEL_KEYS: dict[str, str] = {
     "harvest": "harvest_channel_id",
@@ -55,6 +58,7 @@ COMMAND_CHANNEL_KEYS: dict[str, str] = {
     "vouch": "vouch_channel_id",
     "feedback": "feedback_channel_id",
     "suggest": "suggestions_channel_id",
+    "gacha": "gacha_channel_id",
 }
 
 
@@ -88,20 +92,22 @@ class GrowcomCommandTree(app_commands.CommandTree):
                 )
                 return False
 
-        # 2. Enforce 2-minute (120s) per-user cooldown
+        # 2. Enforce per-user cooldown (60s for /gacha, 120s default for tools)
+        cooldown_sec = COMMAND_COOLDOWN_OVERRIDES.get(cmd_name, USER_COOLDOWN_SECONDS)
         now = time.time()
         bucket_key = (interaction.user.id, cmd_name)
         expires_at = self._user_cooldowns.get(bucket_key, 0.0)
         if now < expires_at:
             exp_ts = int(expires_at)
+            mins_label = "1-minute" if cooldown_sec == 60 else f"{cooldown_sec // 60}-minute"
             await interaction.response.send_message(
                 f"⏳ **Cooldown Active!** You can use **`/{cmd_name}`** again <t:{exp_ts}:R> (at <t:{exp_ts}:T>).\n"
-                f"*(Each tool has a 2-minute rate limit per user to prevent spam!)*",
+                f"*(This command has a {mins_label} rate limit per user to prevent spam!)*",
                 ephemeral=True,
             )
             return False
 
-        self._user_cooldowns[bucket_key] = now + USER_COOLDOWN_SECONDS
+        self._user_cooldowns[bucket_key] = now + cooldown_sec
         return True
 
 

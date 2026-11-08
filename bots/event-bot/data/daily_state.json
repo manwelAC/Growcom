@@ -45,5 +45,14 @@
     "1568536819639779441",
     "1568536823372845127"
   ],
-  "dc_feed_channel_id": "1567229570237726872"
+  "dc_feed_channel_id": "1567229570237726872",
+  "gacha_channel_id": 1568907253854113855,
+  "gacha_leaderboard_channel_id": 1568907256467169381,
+  "gacha_leaderboard_message_ids": {
+    "valentine_gbc": 1568907261504397476,
+    "summer_fireworks": 1568907265241776219,
+    "halloween_growganoth": 1568907268865523804,
+    "winter_wish": 1568907272455725107,
+    "lunar_well": 1568907275937120328
+  }
 }
