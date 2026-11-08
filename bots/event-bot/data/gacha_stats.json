@@ -2,28 +2,131 @@
   "valentine_gbc": {
     "415333644702580740": {
       "name": "Manwel",
-      "rolls": 50,
-      "spent_wl": 250,
-      "won_wl": 436,
+      "rolls": 140,
+      "spent_wl": 700,
+      "won_wl": 2515,
+      "mythics": 0,
+      "ultra_rares": 1,
+      "best_drop": "Golden Angel Wings",
+      "best_wl": 1800
+    },
+    "702337131640651806": {
+      "name": "Solomon",
+      "rolls": 240,
+      "spent_wl": 1200,
+      "won_wl": 2963,
+      "mythics": 0,
+      "ultra_rares": 1,
+      "best_drop": "Golden Angel Wings",
+      "best_wl": 1800
+    },
+    "545896814402994178": {
+      "name": "Average_Kirk",
+      "rolls": 10,
+      "spent_wl": 50,
+      "won_wl": 100,
       "mythics": 0,
       "ultra_rares": 0,
       "best_drop": "Heartbow",
       "best_wl": 85
+    },
+    "629964300202803200": {
+      "name": "0vov.",
+      "rolls": 10,
+      "spent_wl": 50,
+      "won_wl": 27,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Ruby Lock",
+      "best_wl": 15
     }
   },
   "summer_fireworks": {
     "415333644702580740": {
       "name": "Manwel",
-      "rolls": 10,
-      "spent_wl": 80,
-      "won_wl": 17,
+      "rolls": 80,
+      "spent_wl": 640,
+      "won_wl": 329,
       "mythics": 0,
       "ultra_rares": 0,
-      "best_drop": "Beach Blast (x5)",
-      "best_wl": 2
+      "best_drop": "Summer Surprise",
+      "best_wl": 22
+    },
+    "702337131640651806": {
+      "name": "Solomon",
+      "rolls": 210,
+      "spent_wl": 1680,
+      "won_wl": 26365,
+      "mythics": 1,
+      "ultra_rares": 1,
+      "best_drop": "Phoenix Wings",
+      "best_wl": 22000
+    },
+    "604612739310288896": {
+      "name": "Cedddd",
+      "rolls": 30,
+      "spent_wl": 240,
+      "won_wl": 3482,
+      "mythics": 0,
+      "ultra_rares": 1,
+      "best_drop": "Phoenix Pacifier",
+      "best_wl": 3200
+    },
+    "992468725510963231": {
+      "name": "| Stupidify |",
+      "rolls": 10,
+      "spent_wl": 80,
+      "won_wl": 60,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Summer Surprise",
+      "best_wl": 22
     }
   },
-  "halloween_growganoth": {},
-  "winter_wish": {},
-  "lunar_well": {}
+  "halloween_growganoth": {
+    "702337131640651806": {
+      "name": "Solomon",
+      "rolls": 50,
+      "spent_wl": 500,
+      "won_wl": 2986,
+      "mythics": 0,
+      "ultra_rares": 1,
+      "best_drop": "Devil Wings",
+      "best_wl": 2400
+    }
+  },
+  "winter_wish": {
+    "415333644702580740": {
+      "name": "Manwel",
+      "rolls": 10,
+      "spent_wl": 60,
+      "won_wl": 170,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Snowy Night Cloak",
+      "best_wl": 110
+    }
+  },
+  "lunar_well": {
+    "415333644702580740": {
+      "name": "Manwel",
+      "rolls": 100,
+      "spent_wl": 600,
+      "won_wl": 654,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Lunar Silk Robe",
+      "best_wl": 115
+    },
+    "604612739310288896": {
+      "name": "Cedddd",
+      "rolls": 20,
+      "spent_wl": 120,
+      "won_wl": 36,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Lucky Lantern",
+      "best_wl": 5
+    }
+  }
 }
