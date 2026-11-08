@@ -15,6 +15,7 @@ Category 18: Growtopia Gacha Simulator & Per-Category Live Leaderboards (cogs/ga
 from __future__ import annotations
 
 from datetime import datetime
+import asyncio
 import json
 import random
 import re
@@ -632,6 +633,15 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
         if msg_id:
             try:
                 msg = await lb_channel.fetch_message(int(msg_id))
+                # Skip the PATCH when the card is already up to date (avoids 429 rate limits on restarts / 5-min loop)
+                if msg.embeds:
+                    cur = msg.embeds[0]
+                    if (
+                        (cur.description or "") == (embed.description or "")
+                        and (cur.title or "") == (embed.title or "")
+                        and (cur.footer.text if cur.footer else "") == (embed.footer.text or "")
+                    ):
+                        return
                 await msg.edit(embed=embed)
                 return
             except discord.NotFound:
@@ -657,6 +667,7 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
                 self._startup_synced = True
             for pool_key in GACHA_POOLS:
                 await self.update_leaderboard_card(guild, pool_key)
+                await asyncio.sleep(1.5)  # space out edits so Discord never rate-limits the leaderboard channel
 
     @leaderboard_sync_loop.before_loop
     async def before_leaderboard_sync_loop(self) -> None:
