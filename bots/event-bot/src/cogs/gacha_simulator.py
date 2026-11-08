@@ -44,6 +44,12 @@ MEMBER_ROLE_ID = 1568495447067332608
 GACHA_COOLDOWN_SECONDS = 60
 GACHA_STATS_FILE = PROJECT_ROOT / "bots" / "event-bot" / "data" / "gacha_stats.json"
 
+# Pill-row links must use a full discord.com/channels/<guild>/<channel> path: Discord refuses to render
+# masked links whose URL is a bare host + fragment (e.g. https://gt.com#uid=...), leaving raw markdown visible.
+PILL_LINK_SIM = "https://discord.com/channels/1567168949584658534/1568907253854113855"
+PILL_LINK_BOARD = "https://discord.com/channels/1567168949584658534/1568907256467169381"
+EMBED_DESC_SAFE_LIMIT = 3900  # Discord hard limit is 4096
+
 
 # Official 2024–2026 Growtopia Wiki (growtopiawiki.com) Gacha Pools (40 items per pool, summing to 100.00% weight)
 GACHA_POOLS: dict[str, dict[str, Any]] = {
@@ -385,7 +391,7 @@ def build_category_leaderboard_embed(pool_key: str, cat_stats: dict[str, dict[st
     rows: list[str] = [header_pill]
 
     if not cat_stats:
-        empty_pill = "[`#--   No pulls yet    0 (0U)   0 WL        0    `](https://gt.com)"
+        empty_pill = f"[`#--   No pulls yet    0 (0U)   0 WL        0    `]({PILL_LINK_SIM})"
         rows.append(empty_pill)
     else:
         sorted_players = sorted(
@@ -425,7 +431,7 @@ def build_category_leaderboard_embed(pool_key: str, cat_stats: dict[str, dict[st
                 f"uid={uid}&name={quote(user_col)}&m={mythics}&u={ultras}"
                 f"&won={won}&spent={spent}&rolls={rolls}&best={quote(best_drop)}&bwl={best_wl}"
             )
-            url = f"https://gt.com#{frag}"
+            url = f"{PILL_LINK_SIM}#{frag}"
             rows.append(f"[`{row_text}`]({url})")
 
     table_section = "\n".join(rows)
@@ -780,7 +786,7 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
 
         sorted_tally = sorted(tally.items(), key=lambda kv: kv[1]["wl_value"], reverse=True)
         u_rows: list[str] = ["**`Qty    Item Unboxed            Tier         Value   `**"]
-        shown_limit = 25
+        shown_limit = 20
         for iname, info in sorted_tally[:shown_limit]:
             sub_val = info["count"] * info["wl_value"]
             qty_col = f"{info['count']}x"
@@ -788,14 +794,18 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
             tier_col = _clean_ascii_name(info.get("short_tier", "COMMON"), 11)
             val_col = f"{sub_val:,} WL"
             row_txt = f"{qty_col:<7}{item_col:<24}{tier_col:<13}{val_col:<8}"
-            u_rows.append(f"[`{row_txt}`](https://gt.com)")
+            u_rows.append(f"[`{row_txt}`]({PILL_LINK_BOARD})")
 
         if len(sorted_tally) > shown_limit:
             rem_items = sorted_tally[shown_limit:]
             rem_qty = sum(info["count"] for _, info in rem_items)
             rem_val = sum(info["count"] * info["wl_value"] for _, info in rem_items)
             more_txt = f"+{rem_qty}x   ({len(rem_items)} more items)          COMMON/UNC   {rem_val:,} WL"
-            u_rows.append(f"[`{more_txt:<52}`](https://gt.com)")
+            u_rows.append(f"[`{more_txt:<52}`]({PILL_LINK_BOARD})")
+
+        # Safety net: never let the description exceed Discord's 4096-char limit (drops lowest-value rows first)
+        while len("\n".join(u_rows)) > EMBED_DESC_SAFE_LIMIT - 600 and len(u_rows) > 2:
+            u_rows.pop(-2 if len(sorted_tally) > shown_limit else -1)
 
         net_emoji = "📈" if net_wl >= 0 else "📉"
         net_str = f"+{net_wl:,} WL" if net_wl >= 0 else f"{net_wl:,} WL"
