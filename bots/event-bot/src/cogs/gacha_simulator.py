@@ -834,10 +834,10 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
 
     @app_commands.command(
         name="gacha",
-        description="Roll Growtopia Gacha boxes (2024–2026 Pool: Valentine GBC, SummerFest, Growganoth, WinterFest, Lunar)!",
+        description="Roll Growtopia event Gachas (Valentine, SummerFest, Halloween, WinterFest, Lunar)!",
     )
     @app_commands.describe(
-        category="Choose which Growtopia Gacha event to roll (40 official items per pool!)",
+        category="Choose which Growtopia Gacha event to roll",
         rolls="Number of rolls to open at once (1x, 10x, 25x, or 50x)",
     )
     @app_commands.choices(
