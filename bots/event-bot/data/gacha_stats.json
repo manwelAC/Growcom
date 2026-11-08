@@ -1,0 +1,29 @@
+{
+  "valentine_gbc": {
+    "415333644702580740": {
+      "name": "Manwel",
+      "rolls": 50,
+      "spent_wl": 250,
+      "won_wl": 436,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Heartbow",
+      "best_wl": 85
+    }
+  },
+  "summer_fireworks": {
+    "415333644702580740": {
+      "name": "Manwel",
+      "rolls": 10,
+      "spent_wl": 80,
+      "won_wl": 17,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Beach Blast (x5)",
+      "best_wl": 2
+    }
+  },
+  "halloween_growganoth": {},
+  "winter_wish": {},
+  "lunar_well": {}
+}

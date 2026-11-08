@@ -2,10 +2,10 @@
 Category 18: Growtopia Gacha Simulator & Per-Category Live Leaderboards (cogs/gacha_simulator.py)
 - /gacha (Roll 1x, 10x, 25x, or 50x on 5 iconic Growtopia Gacha events with a 1-minute per-user cooldown)
 - Interactive persistent Gacha Hub in #🎰gacha-simulator (1-click Roll 10x buttons for all 5 Gachas)
-- Read-only #🏆gacha-leaderboards with 5 separate per-category Box-Drawing Table leaderboard cards
+- Read-only #🏆gacha-leaderboards with sleek Pill-Row Table leaderboards (matching the Mr. Pulsar style)
 - 3-Layer Sync Engine:
   1. Instant push update (message.edit) to the specific Gacha category card in #🏆gacha-leaderboards on every roll
-  2. Discord-native state recovery on bot startup (parses existing leaderboard cards so Render redeploys never wipe scores)
+  2. Discord-native state recovery on bot startup (parses hidden URL fragment metadata on each table row)
   3. 5-minute background verification loop
 """
 
@@ -17,6 +17,7 @@ import random
 import re
 import time
 from typing import TYPE_CHECKING, Any
+from urllib.parse import parse_qs, quote, unquote
 
 import discord
 from discord import app_commands
@@ -151,15 +152,19 @@ def save_gacha_stats(stats: dict[str, dict[str, dict[str, Any]]]) -> None:
     GACHA_STATS_FILE.write_text(json.dumps(stats, indent=2), encoding="utf-8")
 
 
-def _clean_ascii_name(raw_name: str, max_len: int = 11) -> str:
-    """Keep table cells strictly ASCII/printable so Unicode box-drawing borders align perfectly."""
-    cleaned = "".join(ch for ch in raw_name if 32 <= ord(ch) <= 126).strip()
+def _clean_ascii_name(raw_name: str, max_len: int = 14) -> str:
+    cleaned = "".join(ch for ch in raw_name if 32 <= ord(ch) <= 126 and ch != "`").strip()
     if not cleaned:
         cleaned = "Player"
     return cleaned[:max_len]
 
 
 def build_category_leaderboard_embed(pool_key: str, cat_stats: dict[str, dict[str, Any]]) -> discord.Embed:
+    """
+    Build the sleek Pill-Row Table Leaderboard (matching the Mr. Pulsar reference):
+    - Bold inline-code header pill: **`Rank  User            Mythic   Won (WL)    Rolls`**
+    - Cyan linked inline-code row pills: [`#1    Manwel          0 (0U)   436 WL      50   `](https://...)
+    """
     pool = GACHA_POOLS[pool_key]
     r, g, b = pool["color"]
 
@@ -168,28 +173,22 @@ def build_category_leaderboard_embed(pool_key: str, cat_stats: dict[str, dict[st
     total_cat_won = sum(int(v.get("won_wl", 0)) for v in cat_stats.values())
 
     embed = discord.Embed(
-        title=f"{pool['emoji']} {pool['name']} — Live Leaderboard",
+        title=f"{pool['emoji']} {pool['name']}",
         description=(
             f"{pool['banner_desc']}\n"
-            f"🎯 **Mythic Jackpot:** `{pool['jackpot_item']}`  •  💰 **Cost:** `{pool['cost_wl']} WL / roll`  •  "
-            f"🎲 **Server Rolls:** `{total_cat_rolls:,}`"
+            f"🎯 **Jackpot:** `{pool['jackpot_item']}`  •  💰 **Cost:** `{pool['cost_wl']} WL/roll`  •  "
+            f"🎲 **Total Rolls:** `{total_cat_rolls:,}`"
         ),
         color=discord.Color.from_rgb(r, g, b),
         timestamp=datetime.now(EVENT_TZ),
     )
 
-    # Build a crisp 57-character Box-Drawing Table that never wraps inside Discord embeds
-    top_border = "┌────┬─────────────┬────────┬─────────┬─────────┬───────┐"
-    header_row = "│ #  │ Player      │ Mythic │  Won WL │  Net WL │ Rolls │"
-    mid_border = "├────┼─────────────┼────────┼─────────┼─────────┼───────┤"
-    bot_border = "└────┴─────────────┴────────┴─────────┴─────────┴───────┘"
-
-    table_rows: list[str] = [top_border, header_row, mid_border]
-    podium_lines: list[str] = []
+    header_pill = "**`Rank  User            Mythic   Won (WL)    Rolls`**"
+    rows: list[str] = [header_pill]
 
     if not cat_stats:
-        empty_row = "│ -- │ No pulls    │ 0 (0U) │       0 │       0 │     0 │"
-        table_rows.append(empty_row)
+        empty_pill = "[`#--   No pulls yet    0 (0U)   0 WL        0    `](https://discord.com/channels/1567168949584658534/1568907253854113855)"
+        rows.append(empty_pill)
     else:
         sorted_players = sorted(
             cat_stats.items(),
@@ -201,62 +200,43 @@ def build_category_leaderboard_embed(pool_key: str, cat_stats: dict[str, dict[st
             reverse=True,
         )[:10]
 
-        medals = ["🥇", "🥈", "🥉"]
         for idx, (uid, pdata) in enumerate(sorted_players):
-            rank_str = f"{idx + 1:02d}"
+            rank_col = f"#{idx + 1}"
             raw_name = str(pdata.get("name") or f"User-{str(uid)[-4:]}")
-            name_cell = _clean_ascii_name(raw_name, 11)
+            user_col = _clean_ascii_name(raw_name, 14)
             rolls = int(pdata.get("rolls", 0))
             spent = int(pdata.get("spent_wl", 0))
             won = int(pdata.get("won_wl", 0))
-            net = won - spent
             mythics = int(pdata.get("mythics", 0))
             ultras = int(pdata.get("ultra_rares", 0))
             best_drop = str(pdata.get("best_drop", "None"))
+            best_wl = int(pdata.get("best_wl", 0))
 
-            mythic_cell = f"{mythics} ({ultras}U)"
-            won_cell = f"{won:,}"
-            net_cell = f"+{net:,}" if net >= 0 else f"{net:,}"
-            rolls_cell = f"{rolls:,}"
+            mythic_col = f"{mythics} ({ultras}U)"
+            won_col = f"{won:,} WL"
+            rolls_col = f"{rolls:,}"
 
-            row_str = (
-                f"│ {rank_str:<2} "
-                f"│ {name_cell:<11} "
-                f"│ {mythic_cell:^6} "
-                f"│ {won_cell:>7} "
-                f"│ {net_cell:>7} "
-                f"│ {rolls_cell:>5} │"
+            # 48-character fixed-width pill row (never wraps, aligns identically to Mr. Pulsar)
+            row_text = (
+                f"{rank_col:<6}"
+                f"{user_col:<16}"
+                f"{mythic_col:<9}"
+                f"{won_col:<12}"
+                f"{rolls_col:<5}"
             )
-            table_rows.append(row_str)
-
-            medal = medals[idx] if idx < 3 else f"`#{idx + 1}`"
-            # Podium line with clickable mention + machine-recoverable stats for startup sync
-            podium_lines.append(
-                f"{medal} <@{uid}> (`{name_cell}`) — **Best:** `{best_drop}` "
-                f"• *`{mythics}M/{ultras}U` • `{won:,}W` (`{net_cell}N`) • `{rolls:,}R`*"
+            # Store exact lossless stats inside the URL fragment so startup recovery is 100% invisible & automatic
+            frag = (
+                f"uid={uid}&name={quote(user_col)}&m={mythics}&u={ultras}"
+                f"&won={won}&spent={spent}&rolls={rolls}&best={quote(best_drop)}&bwl={best_wl}"
             )
-
-    table_rows.append(bot_border)
-    table_block = "```text\n" + "\n".join(table_rows) + "\n```"
+            url = f"https://discord.com/channels/1567168949584658534/1568907253854113855#{frag}"
+            rows.append(f"[`{row_text}`]({url})")
 
     embed.add_field(
-        name=f"📊 {pool['short_name']} Standings ({total_cat_rolls:,} Rolls • {total_cat_mythics} Jackpots • {total_cat_won:,} WL Won)",
-        value=table_block,
+        name=f"🏆 {pool['short_name']} Leaderboard ({total_cat_mythics} Jackpots • {total_cat_won:,} WL Won)",
+        value="\n".join(rows),
         inline=False,
     )
-
-    if podium_lines:
-        embed.add_field(
-            name="🏅 Ranked Players & Best Pulls",
-            value="\n".join(podium_lines[:10]),
-            inline=False,
-        )
-    else:
-        embed.add_field(
-            name="🏅 Ranked Players & Best Pulls",
-            value="*Roll in `#🎰gacha-simulator` to claim the `#01` spot on this table!*",
-            inline=False,
-        )
 
     embed.set_footer(text=f"{FOOTER_TEXT} • Auto-Synced Live from #🎰gacha-simulator")
     return embed
@@ -345,8 +325,8 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
     async def recover_stats_from_discord(self, guild: discord.Guild) -> None:
         """
         Discord-as-Database Recovery:
-        Reads existing leaderboard embeds in #🏆gacha-leaderboards (supports both the new Table+Podium
-        format and the legacy format) so Render container redeploys never wipe player stats!
+        Parses hidden URL fragments (`#uid=...&won=...&rolls=...`) inside the Pill-Row Table links
+        in #🏆gacha-leaderboards so container restarts never wipe player scores!
         """
         state = load_state()
         lb_channel_id = state.get("gacha_leaderboard_channel_id")
@@ -364,15 +344,7 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
             return
 
         stats = load_gacha_stats()
-        new_podium_pattern = re.compile(
-            r"<@(\d+)>\s*\(`([^`]+)`\)\s*—\s*\*\*Best:\*\*\s*`([^`]+)`\s*•\s*"
-            r"\*`(\d+)M/(\d+)U`\s*•\s*`([\d,]+)W`\s*\(`([+\-\d,]+)N`\)\s*•\s*`([\d,]+)R`\*"
-        )
-        legacy_pattern = re.compile(
-            r"<@(\d+)>\s*—\s*\*\*💎\s*`(\d+)`\s*Mythics\*\*\s*\(`(\d+)`\s*Ultra\)\s*•\s*"
-            r"\*\*Won:\*\*\s*`([\d,]+)\s*WL`\s*\(`Net:\s*([+\-\d,]+)\s*WL`\)\s*•\s*"
-            r"\*\*Rolls:\*\*\s*`([\d,]+)`\s*\*\(Best:\s*([^\)]+)\)\*"
-        )
+        frag_pattern = re.compile(r"#(uid=\d+&[^\)]+)\)")
 
         try:
             async for msg in lb_channel.history(limit=20):
@@ -396,54 +368,35 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
 
                 for field in emb.fields:
                     for line in (field.value or "").splitlines():
-                        m_new = new_podium_pattern.search(line)
-                        if m_new:
-                            uid, pname, best_drop, myth_s, ultra_s, won_s, net_s, rolls_s = m_new.groups()
-                            mythics = int(myth_s)
-                            ultras = int(ultra_s)
-                            won = int(won_s.replace(",", ""))
-                            net = int(net_s.replace(",", "").replace("+", ""))
-                            rolls = int(rolls_s.replace(",", ""))
-                            spent = won - net
-                            cat_bucket = stats.setdefault(matched_pool_key, {})
-                            existing = cat_bucket.get(uid)
-                            if not existing or int(existing.get("rolls", 0)) < rolls:
-                                cat_bucket[uid] = {
-                                    "name": pname.strip(),
-                                    "rolls": rolls,
-                                    "spent_wl": spent,
-                                    "won_wl": won,
-                                    "mythics": mythics,
-                                    "ultra_rares": ultras,
-                                    "best_drop": best_drop.strip(),
-                                    "best_wl": 0,
-                                }
+                        m_frag = frag_pattern.search(line)
+                        if not m_frag:
                             continue
+                        qs = parse_qs(m_frag.group(1))
+                        uid = (qs.get("uid") or [""])[0]
+                        if not uid:
+                            continue
+                        pname = unquote((qs.get("name") or ["Player"])[0])
+                        mythics = int((qs.get("m") or ["0"])[0])
+                        ultras = int((qs.get("u") or ["0"])[0])
+                        won = int((qs.get("won") or ["0"])[0])
+                        spent = int((qs.get("spent") or ["0"])[0])
+                        rolls = int((qs.get("rolls") or ["0"])[0])
+                        best_drop = unquote((qs.get("best") or ["None"])[0])
+                        best_wl = int((qs.get("bwl") or ["0"])[0])
 
-                        m_old = legacy_pattern.search(line)
-                        if m_old:
-                            uid, myth_s, ultra_s, won_s, net_s, rolls_s, best_drop = m_old.groups()
-                            mythics = int(myth_s)
-                            ultras = int(ultra_s)
-                            won = int(won_s.replace(",", ""))
-                            net = int(net_s.replace(",", "").replace("+", ""))
-                            rolls = int(rolls_s.replace(",", ""))
-                            spent = won - net
-                            member = guild.get_member(int(uid))
-                            pname = member.display_name if member else "Manwel"
-                            cat_bucket = stats.setdefault(matched_pool_key, {})
-                            existing = cat_bucket.get(uid)
-                            if not existing or int(existing.get("rolls", 0)) < rolls:
-                                cat_bucket[uid] = {
-                                    "name": pname,
-                                    "rolls": rolls,
-                                    "spent_wl": spent,
-                                    "won_wl": won,
-                                    "mythics": mythics,
-                                    "ultra_rares": ultras,
-                                    "best_drop": best_drop.strip(),
-                                    "best_wl": 0,
-                                }
+                        cat_bucket = stats.setdefault(matched_pool_key, {})
+                        existing = cat_bucket.get(uid)
+                        if not existing or int(existing.get("rolls", 0)) < rolls:
+                            cat_bucket[uid] = {
+                                "name": pname,
+                                "rolls": rolls,
+                                "spent_wl": spent,
+                                "won_wl": won,
+                                "mythics": mythics,
+                                "ultra_rares": ultras,
+                                "best_drop": best_drop,
+                                "best_wl": best_wl,
+                            }
             save_gacha_stats(stats)
         except Exception as exc:
             logger.warning("Failed to recover gacha stats from Discord history: %s", exc)
@@ -602,28 +555,23 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
 
         save_gacha_stats(stats)
 
-        # Build Roll Result Embed with a Box-Drawing Unbox Table
+        # Build Roll Result Embed with Pill-Row Unbox Table matching the reference image
         r, g, b = pool["color"]
         if mythics_pulled > 0:
             r, g, b = (255, 215, 0)
 
         sorted_tally = sorted(tally.items(), key=lambda kv: kv[1]["wl_value"], reverse=True)
-        u_top = "┌──────┬────────────────────────┬────────────┬──────────┐"
-        u_hdr = "│ Qty  │ Item Unboxed           │ Tier       │ Value    │"
-        u_mid = "├──────┼────────────────────────┼────────────┼──────────┤"
-        u_bot = "└──────┴────────────────────────┴────────────┴──────────┘"
-        u_rows = [u_top, u_hdr, u_mid]
+        u_rows: list[str] = ["**`Qty    Item Unboxed            Tier         Value   `**"]
         for iname, info in sorted_tally:
             sub_val = info["count"] * info["wl_value"]
-            qty_cell = f"{info['count']}x"
-            item_cell = _clean_ascii_name(iname, 22)
-            tier_cell = _clean_ascii_name(info.get("short_tier", "COMMON"), 10)
-            val_cell = f"{sub_val:,} WL"
+            qty_col = f"{info['count']}x"
+            item_col = _clean_ascii_name(iname, 22)
+            tier_col = _clean_ascii_name(info.get("short_tier", "COMMON"), 11)
+            val_col = f"{sub_val:,} WL"
+            row_txt = f"{qty_col:<7}{item_col:<24}{tier_col:<13}{val_col:<8}"
             u_rows.append(
-                f"│ {qty_cell:>4} │ {item_cell:<22} │ {tier_cell:<10} │ {val_cell:>8} │"
+                f"[`{row_txt}`](https://discord.com/channels/1567168949584658534/1568907256467169381)"
             )
-        u_rows.append(u_bot)
-        unbox_table = "```text\n" + "\n".join(u_rows) + "\n```"
 
         net_emoji = "📈" if net_wl >= 0 else "📉"
         net_str = f"+{net_wl:,} WL" if net_wl >= 0 else f"{net_wl:,} WL"
@@ -648,7 +596,7 @@ class GachaSimulatorCog(commands.Cog, name="Gacha Simulator"):
         )
         embed.add_field(
             name="🎁 Items Unboxed",
-            value=unbox_table,
+            value="\n".join(u_rows),
             inline=False,
         )
 
