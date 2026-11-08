@@ -31,20 +31,19 @@ from app.schemas import DailyQuestItem, DailyStatusResponse, WikiItemResponse
 
 logger = logging.getLogger("growcom.wiki_scraper")
 
-# Growtopia's 6-day Role Day rotation (alphabetical in-game cycle anchored to 2026-11-05 = Builder)
-# Verified against live in-game resets:
-# - 2026-11-05 = Builder
-# - 2026-11-06 = Chef
-# - 2026-11-07 = Farmer
-# - 2026-11-08 = Fishing
-# - 2026-11-09 = Star Captain
-# - 2026-11-10 = Surgeon
+# Growtopia's 6-day Role Day rotation (verified across all 6 days of the cycle from live resets):
+# - 2026-11-03 = Fishing      (Day 4)
+# - 2026-11-04 = Surgeon      (Day 5)
+# - 2026-11-05 = Builder      (Day 0 - Anchor)
+# - 2026-11-06 = Chef         (Day 1)
+# - 2026-11-07 = Farmer       (Day 2)
+# - 2026-11-08 = Star Captain (Day 3)
 ROLE_ROTATION: list[tuple[str, str]] = [
     ("Builder", "Crafter Role • +Bonus Builder XP & 1x Growtoken on first Role Quest"),
     ("Chef", "Crafter Role • +Bonus Chef XP & 1x Growtoken on first Role Quest"),
     ("Farmer", "Supplier Role • +Bonus Farmer XP & 1x Growtoken on first Role Quest"),
-    ("Fishing", "Supplier Role • +Bonus Fishing XP & 1x Growtoken on first Role Quest"),
     ("Star Captain", "Supplier Role • +Bonus Star Captain XP & 1x Growtoken on first Role Quest"),
+    ("Fishing", "Supplier Role • +Bonus Fishing XP & 1x Growtoken on first Role Quest"),
     ("Surgeon", "Supplier Role • +Bonus Surgeon XP & 1x Growtoken on first Role Quest"),
 ]
 ROLE_ANCHOR_DATE = date(2026, 11, 5)
