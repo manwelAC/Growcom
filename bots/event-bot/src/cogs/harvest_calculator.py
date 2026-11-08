@@ -37,23 +37,13 @@ class CancelHarvestReminderView(discord.ui.View):
         super().__init__(timeout=None)
         self.reminder_id = reminder_id
         self.owner_id = owner_id
-
-    @discord.ui.button(label="Cancel Auto-Reminder", style=discord.ButtonStyle.secondary, emoji="🔕")
-    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
-        if interaction.user.id != self.owner_id:
-            await interaction.response.send_message(
-                "❌ Only the player who started this timer can cancel it.",
-                ephemeral=True,
-            )
-            return
-
-        reminders = load_reminders()
-        updated = [r for r in reminders if r.get("id") != self.reminder_id]
-        save_reminders(updated)
-
-        button.disabled = True
-        button.label = "Reminder Cancelled"
-        await interaction.response.edit_message(view=self)
+        btn = discord.ui.Button(
+            label="Cancel Auto-Reminder",
+            style=discord.ButtonStyle.secondary,
+            emoji="🔕",
+            custom_id=f"cancel_harvest:{reminder_id}:{owner_id}",
+        )
+        self.add_item(btn)
 
 
 class HarvestSetupModal(discord.ui.Modal):
@@ -90,6 +80,7 @@ class HarvestSetupModal(discord.ui.Modal):
 class HarvestCalculatorCog(commands.Cog, name="Harvest Calculator"):
     def __init__(self, bot: EventBot) -> None:
         self.bot = bot
+        self._fired_ids: set[str] = set()
 
     async def cog_load(self) -> None:
         self.harvest_reminder_loop.start()
@@ -97,9 +88,51 @@ class HarvestCalculatorCog(commands.Cog, name="Harvest Calculator"):
     async def cog_unload(self) -> None:
         self.harvest_reminder_loop.cancel()
 
+    @commands.Cog.listener()
+    async def on_interaction(self, interaction: discord.Interaction) -> None:
+        """Persistently handle the 'Cancel Auto-Reminder' button across bot restarts."""
+        if interaction.type != discord.InteractionType.component or not interaction.data:
+            return
+        custom_id = str(interaction.data.get("custom_id", ""))
+        if not custom_id.startswith("cancel_harvest:"):
+            return
+
+        parts = custom_id.split(":")
+        if len(parts) < 3:
+            return
+        reminder_id = parts[1]
+        try:
+            owner_id = int(parts[2])
+        except ValueError:
+            return
+
+        if interaction.user.id != owner_id:
+            await interaction.response.send_message(
+                "❌ Only the player who started this timer can cancel it.",
+                ephemeral=True,
+            )
+            return
+
+        reminders = load_reminders()
+        updated = [r for r in reminders if r.get("id") != reminder_id]
+        save_reminders(updated)
+        self._fired_ids.add(reminder_id)
+
+        disabled_view = discord.ui.View(timeout=None)
+        disabled_view.add_item(
+            discord.ui.Button(
+                label="Reminder Cancelled",
+                style=discord.ButtonStyle.secondary,
+                emoji="🔕",
+                disabled=True,
+                custom_id=f"cancelled_harvest:{reminder_id}",
+            )
+        )
+        await interaction.response.edit_message(view=disabled_view)
+
     @tasks.loop(seconds=15)
     async def harvest_reminder_loop(self) -> None:
-        """Check active harvest timers and ping players automatically when their trees finish growing."""
+        """Check active harvest timers and DM players once when their trees finish growing."""
         reminders = load_reminders()
         if not reminders:
             return
@@ -109,24 +142,64 @@ class HarvestCalculatorCog(commands.Cog, name="Harvest Calculator"):
         changed = False
 
         for entry in reminders:
+            rem_id = str(entry.get("id", ""))
             ready_ts = int(entry.get("ready_timestamp", 0))
+
+            if rem_id in self._fired_ids:
+                changed = True
+                continue
+
+            # Discard stale reminders (> 10 minutes past ready_timestamp) so restarts never re-fire old timers
+            if now_ts - ready_ts > 600:
+                self._fired_ids.add(rem_id)
+                changed = True
+                continue
+
             if now_ts >= ready_ts:
+                self._fired_ids.add(rem_id)
                 changed = True
                 user_id = int(entry["user_id"])
                 channel_id = int(entry["channel_id"])
                 item_name = entry.get("item_name", "Farm")
-                trees = entry.get("trees", 2645)
+                trees = int(entry.get("trees", 2645))
 
+                # Persist removal BEFORE sending so even a mid-flight restart never double-sends
+                current_after_pop = [r for r in load_reminders() if str(r.get("id", "")) not in self._fired_ids]
+                save_reminders(current_after_pop)
+
+                dm_embed = discord.Embed(
+                    title=f"🌾 Harvest Ready — {item_name}!",
+                    description=(
+                        f"Hey <@{user_id}>! Your **`{trees:,}x` {item_name}** trees have finished growing "
+                        f"(ready at <t:{ready_ts}:t>) and are ready to harvest in Growtopia!"
+                    ),
+                    color=discord.Color.from_rgb(46, 204, 113),
+                    timestamp=datetime.now(EVENT_TZ),
+                )
+                dm_embed.set_footer(text=FOOTER_TEXT)
                 alert_text = (
                     f"🌾 **Harvest Ready!** <@{user_id}> — Your **`{trees:,}x` {item_name}** trees "
                     f"have finished growing and are ready to harvest!"
                 )
+
+                dm_sent = False
                 try:
-                    ch = self.bot.get_channel(channel_id) or await self.bot.fetch_channel(channel_id)
-                    if isinstance(ch, discord.abc.Messageable):
-                        await ch.send(alert_text)
+                    user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+                    if user:
+                        await user.send(content=alert_text, embed=dm_embed)
+                        dm_sent = True
                 except Exception as exc:
-                    logger.debug("Could not send harvest alert to channel %s: %s", channel_id, exc)
+                    logger.debug("Could not DM harvest alert to user %s: %s", user_id, exc)
+
+                if not dm_sent:
+                    try:
+                        ch = self.bot.get_channel(channel_id) or await self.bot.fetch_channel(channel_id)
+                        if isinstance(ch, discord.abc.Messageable):
+                            await ch.send(
+                                f"{alert_text}\n*(Tip: Enable Server DMs to receive harvest reminders privately in your DMs!)*"
+                            )
+                    except Exception as exc:
+                        logger.debug("Could not send fallback harvest alert to channel %s: %s", channel_id, exc)
             else:
                 remaining.append(entry)
 
@@ -222,6 +295,7 @@ class HarvestCalculatorCog(commands.Cog, name="Harvest Calculator"):
 
         if not already_ready:
             reminders = load_reminders()
+            reminders = [r for r in reminders if r.get("id") != reminder_id]
             reminders.append(
                 {
                     "id": reminder_id,
@@ -234,7 +308,7 @@ class HarvestCalculatorCog(commands.Cog, name="Harvest Calculator"):
             )
             save_reminders(reminders)
             status_banner = (
-                f"🔔 **Auto-Reminder Active:** <@{interaction.user.id}> will be pinged at "
+                f"🔔 **DM Auto-Reminder Active:** <@{interaction.user.id}> will receive a **Direct Message (DM)** at "
                 f"<t:{ready_ts}:t> (<t:{ready_ts}:R>)!"
             )
         else:
