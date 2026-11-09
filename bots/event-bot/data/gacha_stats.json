@@ -2,39 +2,39 @@
   "valentine_gbc": {
     "415333644702580740": {
       "name": "Manwel",
-      "rolls": 140,
-      "spent_wl": 700,
-      "won_wl": 2515,
+      "rolls": 310,
+      "points": 5938,
       "mythics": 0,
-      "ultra_rares": 1,
+      "ultra_rares": 3,
       "best_drop": "Golden Angel Wings",
-      "best_wl": 1800,
-      "points": 2515,
-      "best_gp": 1800
+      "best_gp": 1800,
+      "spent_wl": 1550,
+      "won_wl": 5938,
+      "best_wl": 1800
     },
     "702337131640651806": {
       "name": "Solomon",
-      "rolls": 240,
-      "spent_wl": 1200,
-      "won_wl": 2963,
+      "rolls": 440,
+      "points": 5171,
       "mythics": 0,
-      "ultra_rares": 1,
+      "ultra_rares": 2,
       "best_drop": "Golden Angel Wings",
-      "best_wl": 1800,
-      "points": 2963,
-      "best_gp": 1800
+      "best_gp": 1800,
+      "spent_wl": 2200,
+      "won_wl": 5171,
+      "best_wl": 1800
     },
     "545896814402994178": {
       "name": "Average_Kirk",
-      "rolls": 10,
-      "spent_wl": 50,
-      "won_wl": 100,
+      "rolls": 20,
+      "points": 195,
       "mythics": 0,
       "ultra_rares": 0,
       "best_drop": "Heartbow",
-      "best_wl": 85,
-      "points": 100,
-      "best_gp": 85
+      "best_gp": 85,
+      "spent_wl": 100,
+      "won_wl": 195,
+      "best_wl": 85
     },
     "629964300202803200": {
       "name": "0vov.",
@@ -47,44 +47,104 @@
       "best_wl": 15,
       "points": 27,
       "best_gp": 15
+    },
+    "1285643114928803893": {
+      "name": "julia",
+      "rolls": 10,
+      "points": 111,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Cotton Candy Cape",
+      "best_gp": 50,
+      "spent_wl": 50,
+      "won_wl": 111,
+      "best_wl": 50
+    },
+    "604612739310288896": {
+      "name": "Cedddd",
+      "rolls": 10,
+      "points": 83,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Sparkling Mallet",
+      "best_gp": 50,
+      "spent_wl": 50,
+      "won_wl": 83,
+      "best_wl": 50
+    },
+    "1530940913579200740": {
+      "name": "AiCakess",
+      "rolls": 10,
+      "points": 67,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Quiver of Hearts",
+      "best_gp": 50,
+      "spent_wl": 50,
+      "won_wl": 67,
+      "best_wl": 50
+    },
+    "1171770333263573058": {
+      "name": "Tinoo",
+      "rolls": 10,
+      "points": 62,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Rose Cape",
+      "best_gp": 25,
+      "spent_wl": 50,
+      "won_wl": 62,
+      "best_wl": 25
+    },
+    "880621765825556510": {
+      "name": "zn",
+      "rolls": 10,
+      "points": 46,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Crimson Thief Mask",
+      "best_gp": 25,
+      "spent_wl": 50,
+      "won_wl": 46,
+      "best_wl": 25
     }
   },
   "summer_fireworks": {
     "415333644702580740": {
       "name": "Manwel",
-      "rolls": 80,
-      "spent_wl": 640,
-      "won_wl": 329,
+      "rolls": 130,
+      "points": 682,
       "mythics": 0,
       "ultra_rares": 0,
-      "best_drop": "Summer Surprise",
-      "best_wl": 22,
-      "points": 329,
-      "best_gp": 22
+      "best_drop": "Poseidon's Trident",
+      "best_gp": 50,
+      "spent_wl": 650,
+      "won_wl": 682,
+      "best_wl": 50
     },
     "702337131640651806": {
       "name": "Solomon",
-      "rolls": 210,
-      "spent_wl": 1680,
-      "won_wl": 26365,
+      "rolls": 260,
+      "points": 26784,
       "mythics": 1,
       "ultra_rares": 1,
       "best_drop": "Phoenix Wings",
-      "best_wl": 22000,
-      "points": 26365,
-      "best_gp": 22000
+      "best_gp": 22000,
+      "spent_wl": 1300,
+      "won_wl": 26784,
+      "best_wl": 22000
     },
     "604612739310288896": {
       "name": "Cedddd",
-      "rolls": 30,
-      "spent_wl": 240,
-      "won_wl": 3482,
+      "rolls": 40,
+      "points": 3577,
       "mythics": 0,
       "ultra_rares": 1,
       "best_drop": "Phoenix Pacifier",
-      "best_wl": 3200,
-      "points": 3482,
-      "best_gp": 3200
+      "best_gp": 3200,
+      "spent_wl": 200,
+      "won_wl": 3577,
+      "best_wl": 3200
     },
     "992468725510963231": {
       "name": "| Stupidify |",
@@ -97,6 +157,18 @@
       "best_wl": 22,
       "points": 60,
       "best_gp": 22
+    },
+    "629964300202803200": {
+      "name": "0vov.",
+      "rolls": 10,
+      "points": 50,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Phoenix Scarf",
+      "best_gp": 25,
+      "spent_wl": 50,
+      "won_wl": 50,
+      "best_wl": 25
     }
   },
   "halloween_growganoth": {
@@ -111,6 +183,18 @@
       "best_wl": 2400,
       "points": 2986,
       "best_gp": 2400
+    },
+    "415333644702580740": {
+      "name": "Manwel",
+      "rolls": 120,
+      "points": 2930,
+      "mythics": 0,
+      "ultra_rares": 2,
+      "best_drop": "Pop Demon's Riding Tiger",
+      "best_gp": 1000,
+      "spent_wl": 600,
+      "won_wl": 2930,
+      "best_wl": 1000
     }
   },
   "winter_wish": {
@@ -125,32 +209,104 @@
       "best_wl": 110,
       "points": 170,
       "best_gp": 110
+    },
+    "702337131640651806": {
+      "name": "Solomon",
+      "rolls": 100,
+      "points": 833,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Missile Toad Pet",
+      "best_gp": 50,
+      "spent_wl": 500,
+      "won_wl": 833,
+      "best_wl": 50
+    },
+    "863967428307845130": {
+      "name": "Yuur",
+      "rolls": 50,
+      "points": 276,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Winter Wishing Star",
+      "best_gp": 50,
+      "spent_wl": 250,
+      "won_wl": 276,
+      "best_wl": 50
+    },
+    "604612739310288896": {
+      "name": "Cedddd",
+      "rolls": 10,
+      "points": 66,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Neon Tree Aura",
+      "best_gp": 25,
+      "spent_wl": 50,
+      "won_wl": 66,
+      "best_wl": 25
     }
   },
   "lunar_well": {
     "415333644702580740": {
       "name": "Manwel",
-      "rolls": 100,
-      "spent_wl": 600,
-      "won_wl": 654,
-      "mythics": 0,
-      "ultra_rares": 0,
-      "best_drop": "Lunar Silk Robe",
-      "best_wl": 115,
-      "points": 654,
-      "best_gp": 115
+      "rolls": 350,
+      "points": 16672,
+      "mythics": 1,
+      "ultra_rares": 4,
+      "best_drop": "Nezha's Wheels",
+      "best_gp": 10000,
+      "spent_wl": 1750,
+      "won_wl": 16672,
+      "best_wl": 10000
     },
     "604612739310288896": {
       "name": "Cedddd",
-      "rolls": 20,
-      "spent_wl": 120,
-      "won_wl": 36,
+      "rolls": 30,
+      "points": 86,
       "mythics": 0,
       "ultra_rares": 0,
-      "best_drop": "Lucky Lantern",
-      "best_wl": 5,
-      "points": 36,
-      "best_gp": 5
+      "best_drop": "Rebel Jacket",
+      "best_gp": 25,
+      "spent_wl": 150,
+      "won_wl": 86,
+      "best_wl": 25
+    },
+    "863967428307845130": {
+      "name": "Yuur",
+      "rolls": 210,
+      "points": 3109,
+      "mythics": 0,
+      "ultra_rares": 2,
+      "best_drop": "Zodiac Year of Snake",
+      "best_gp": 1000,
+      "spent_wl": 1050,
+      "won_wl": 3109,
+      "best_wl": 1000
+    },
+    "702337131640651806": {
+      "name": "Solomon",
+      "rolls": 100,
+      "points": 2595,
+      "mythics": 0,
+      "ultra_rares": 2,
+      "best_drop": "Horse Zodiac Medallion",
+      "best_gp": 1000,
+      "spent_wl": 500,
+      "won_wl": 2595,
+      "best_wl": 1000
+    },
+    "1045992482388844575": {
+      "name": "Gtoy",
+      "rolls": 20,
+      "points": 164,
+      "mythics": 0,
+      "ultra_rares": 0,
+      "best_drop": "Draconic Wings",
+      "best_gp": 25,
+      "spent_wl": 100,
+      "won_wl": 164,
+      "best_wl": 25
     }
   }
 }

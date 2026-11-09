@@ -91,13 +91,27 @@ THEMES: dict[str, dict[str, Any]] = {
 THEME_KEYS = list(THEMES.keys())
 
 
-def is_staff(user: discord.Member | discord.User) -> bool:
-    """Check if a user is a server Administrator or has the Admins role."""
-    if not isinstance(user, discord.Member):
-        return False
-    if user.guild_permissions.administrator:
+def is_staff(user_or_interaction: discord.Member | discord.User | discord.Interaction) -> bool:
+    """Check if a user is the server Owner, an Administrator, or has the Admins role."""
+    if isinstance(user_or_interaction, discord.Interaction):
+        interaction = user_or_interaction
+        if not interaction.guild:
+            return False
+        if interaction.user.id == interaction.guild.owner_id:
+            return True
+        if hasattr(interaction, "permissions") and interaction.permissions.administrator:
+            return True
+        user = interaction.user
+    else:
+        user = user_or_interaction
+
+    if hasattr(user, "guild") and user.guild and user.id == user.guild.owner_id:
         return True
-    return any(r.id == ADMIN_ROLE_ID for r in user.roles)
+    if hasattr(user, "guild_permissions") and user.guild_permissions.administrator:
+        return True
+    if hasattr(user, "roles"):
+        return any(r.id == ADMIN_ROLE_ID for r in user.roles)
+    return False
 
 
 def build_announcement_embed(
@@ -379,12 +393,7 @@ class AnnouncementFormModal(discord.ui.Modal, title="📢 Compose Server Announc
     ann_body = discord.ui.TextInput(
         label="Content (Markdown Supported)",
         style=discord.TextStyle.paragraph,
-        placeholder=(
-            "Write announcement details...\n\n"
-            "• Bullet points supported\n"
-            "• Use **bold**, *italics*, and > quotes\n"
-            "• Add dates, rules, or instructions"
-        ),
+        placeholder="Write announcement details here... (Supports bold, bullet points, quotes, links)",
         max_length=3500,
         required=True,
     )
@@ -462,21 +471,23 @@ class AnnouncementStudioView(discord.ui.View):
         row=0,
     )
     async def create_button(self, interaction: discord.Interaction, _btn: discord.ui.Button) -> None:
-        if not is_staff(interaction.user):
-            await interaction.response.send_message(
-                "⛔ **Access Denied:** Only Growcom Staff & Admins can create official announcements.",
-                ephemeral=True,
-            )
-            return
+        try:
+            if not is_staff(interaction):
+                await interaction.response.send_message(
+                    "⛔ **Access Denied:** Only Growcom Staff & Admins can create official announcements.",
+                    ephemeral=True,
+                )
+                return
 
-        if self.cog:
-            await interaction.response.send_modal(AnnouncementFormModal(self.cog))
-        else:
-            cog = interaction.client.get_cog("Announcement Manager")  # type: ignore[union-attr]
+            cog = self.cog or interaction.client.get_cog("Announcement Manager")
             if isinstance(cog, AnnouncementManagerCog):
                 await interaction.response.send_modal(AnnouncementFormModal(cog))
             else:
                 await interaction.response.send_message("❌ Announcement system cog not loaded.", ephemeral=True)
+        except Exception as exc:
+            logger.exception("Error in announcement create_button: %s", exc)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error opening announcement form: {exc}", ephemeral=True)
 
     @discord.ui.button(
         label="View Themes & Guide",
@@ -486,27 +497,32 @@ class AnnouncementStudioView(discord.ui.View):
         row=0,
     )
     async def templates_button(self, interaction: discord.Interaction, _btn: discord.ui.Button) -> None:
-        guide_embed = discord.Embed(
-            title="🎨 Growcom Announcement Themes & Markdown Guide",
-            description=(
-                "Choose any of the official theme categories when filling in your announcement:\n\n"
-                "• **`UPDATE`** (`#00E676` Emerald): Bot & server feature launches, updates, bugfixes.\n"
-                "• **`EVENT`** (`#9C27B0` Purple): Community activities, drop parties, tournaments.\n"
-                "• **`GIVEAWAY`** (`#FFD700` Gold): World Lock, item, and role giveaways.\n"
-                "• **`NOTICE`** (`#FF1744` Red): Critical alerts, server policy changes, scammer alerts.\n"
-                "• **`MAINTENANCE`** (`#FF9100` Orange): Bot restarts, API downtime, schedule notices.\n"
-                "• **`COMMUNITY`** (`#00E5FF` Cyan): Member milestones, partnerships, general news.\n\n"
-                "### 📝 Markdown Tips:\n"
-                "• `### Headline` -> Bold section title\n"
-                "• `• Item` -> Clean bullet point\n"
-                "• `**Text**` -> Bold, `*Text*` -> Italics\n"
-                "• `> Quote` -> Highlighted quote block\n"
-                "• `<t:TIMESTAMP:R>` -> Dynamic countdown timestamp"
-            ),
-            color=discord.Color.from_rgb(0, 230, 118),
-        )
-        guide_embed.set_footer(text=f"{FOOTER_TEXT} • Formatting Reference")
-        await interaction.response.send_message(embed=guide_embed, ephemeral=True)
+        try:
+            guide_embed = discord.Embed(
+                title="🎨 Growcom Announcement Themes & Markdown Guide",
+                description=(
+                    "Choose any of the official theme categories when filling in your announcement:\n\n"
+                    "• **`UPDATE`** (`#00E676` Emerald): Bot & server feature launches, updates, bugfixes.\n"
+                    "• **`EVENT`** (`#9C27B0` Purple): Community activities, drop parties, tournaments.\n"
+                    "• **`GIVEAWAY`** (`#FFD700` Gold): World Lock, item, and role giveaways.\n"
+                    "• **`NOTICE`** (`#FF1744` Red): Critical alerts, server policy changes, scammer alerts.\n"
+                    "• **`MAINTENANCE`** (`#FF9100` Orange): Bot restarts, API downtime, schedule notices.\n"
+                    "• **`COMMUNITY`** (`#00E5FF` Cyan): Member milestones, partnerships, general news.\n\n"
+                    "### 📝 Markdown Tips:\n"
+                    "• `### Headline` -> Bold section title\n"
+                    "• `• Item` -> Clean bullet point\n"
+                    "• `**Text**` -> Bold, `*Text*` -> Italics\n"
+                    "• `> Quote` -> Highlighted quote block\n"
+                    "• `<t:TIMESTAMP:R>` -> Dynamic countdown timestamp"
+                ),
+                color=discord.Color.from_rgb(0, 230, 118),
+            )
+            guide_embed.set_footer(text=f"{FOOTER_TEXT} • Formatting Reference")
+            await interaction.response.send_message(embed=guide_embed, ephemeral=True)
+        except Exception as exc:
+            logger.exception("Error in templates_button: %s", exc)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error: {exc}", ephemeral=True)
 
     @discord.ui.button(
         label="Refresh Studio",
@@ -516,12 +532,17 @@ class AnnouncementStudioView(discord.ui.View):
         row=0,
     )
     async def refresh_button(self, interaction: discord.Interaction, _btn: discord.ui.Button) -> None:
-        if not is_staff(interaction.user):
-            await interaction.response.send_message("⛔ Only Growcom Staff can refresh the studio panel.", ephemeral=True)
-            return
+        try:
+            if not is_staff(interaction):
+                await interaction.response.send_message("⛔ Only Growcom Staff can refresh the studio panel.", ephemeral=True)
+                return
 
-        embed = build_studio_control_embed()
-        await interaction.response.edit_message(embed=embed, view=self)
+            embed = build_studio_control_embed()
+            await interaction.response.edit_message(embed=embed, view=self)
+        except Exception as exc:
+            logger.exception("Error in refresh_button: %s", exc)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error: {exc}", ephemeral=True)
 
 
 class AnnouncementManagerCog(commands.Cog, name="Announcement Manager"):
@@ -649,14 +670,19 @@ class AnnouncementManagerCog(commands.Cog, name="Announcement Manager"):
     @app_commands.default_permissions(administrator=True)
     async def announce_command(self, interaction: discord.Interaction) -> None:
         """Slash command to trigger the Announcement form modal."""
-        if not is_staff(interaction.user):
-            await interaction.response.send_message(
-                "⛔ **Access Denied:** Only Growcom Staff & Admins can use `/announce`.",
-                ephemeral=True,
-            )
-            return
+        try:
+            if not is_staff(interaction):
+                await interaction.response.send_message(
+                    "⛔ **Access Denied:** Only Growcom Staff & Admins can use `/announce`.",
+                    ephemeral=True,
+                )
+                return
 
-        await interaction.response.send_modal(AnnouncementFormModal(self))
+            await interaction.response.send_modal(AnnouncementFormModal(self))
+        except Exception as exc:
+            logger.exception("Error in /announce command: %s", exc)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error opening announcement form: {exc}", ephemeral=True)
 
 
 async def setup(bot: EventBot) -> None:
