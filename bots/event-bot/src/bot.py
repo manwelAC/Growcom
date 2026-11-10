@@ -24,9 +24,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from bots.shared.api_client import CentralDataClient  # noqa: E402
 from utils.helpers import (  # noqa: E402
-    EVENT_TIMEZONE_NAME,
-    RESET_HOUR,
-    RESET_MINUTE,
     load_state,
     logger,
 )
@@ -154,13 +151,7 @@ bot = EventBot(api_client=CentralDataClient(api_url, api_key), dev_guild_id=dev_
 
 @bot.event
 async def on_ready() -> None:
-    logger.info(
-        "Event Bot connected as %s | Scheduled daily update at %02d:%02d (%s)",
-        bot.user,
-        RESET_HOUR,
-        RESET_MINUTE,
-        EVENT_TIMEZONE_NAME,
-    )
+    logger.info("Event Bot connected as %s", bot.user)
     for guild in bot.guilds:
         try:
             bot.tree.copy_global_to(guild=guild)

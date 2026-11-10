@@ -20,17 +20,17 @@ Every tool in **Growcom Events by Manwel** lives in its own isolated module insi
 
 | # | Category & Module | Player Command | Admin Channel Lock | What It Does |
 | :---: | :--- | :--- | :--- | :--- |
-| **1** | 🌅 **Daily Reset & Auto-DQ** (`cogs/daily_events.py`) | `/daily` | `/set_daily_channel` • `/set_dq_feed_channel` • `/set_daily` | Auto-publishes the **1:00 PM (`00:00 GT`) Daily Reset Board** (Role Day rotation, Daily Challenge, & Crazy Jim's Daily Quest) and auto-reads `#dq-feed`. |
-| **2** | 🌱 **Harvest Timer & Calculator** (`cogs/harvest_calculator.py`) | `/harvest` | `/set_harvest_channel` | Interactive modal asking when you planted & how many trees; calculates exact **Ready Time**, **XP**, **Gems**, and **auto-pings you** when ready! |
-| **3** | 📦 **Item Stats Encyclopedia** (`cogs/item_lookup.py`) | `/item` | `/set_item_channel` | Instant lookup across all **16,490 Growtopia items**: Item ID, Rarity, Grow Time, Fist/Pickaxe Hits, Gems Drop, Chi, & `.rttex` Sprite. |
-| **4** | 🧬 **Splicing & Recipe Lookup** (`cogs/recipe_lookup.py`) | `/recipe` | `/set_recipe_channel` | Shows exact **Seed Splicing (`Seed A + Seed B`)** and **Chemical Combiner / Forge / Cooking** crafting formulas. |
-| **5** | 💰 **Trade & Rate Calculator** (`cogs/rate_calculator.py`) | `/rate` | `/set_rate_channel` | Calculates exact **BGL + DL + WL** breakdowns, `200`-item stack counts, and nearest whole-lock trades (`10/1 WL`, `200/1 DL`, `5 WL each`). |
-| **6** | 🩺 **Surgery & Malady Assistant** (`cogs/surgery_helper.py`) | `/surgery` | `/set_surgery_channel` | Complete step-by-step cheat-sheet for all **27 Standard Illnesses & Vile Vial Maladies** (`Scalpel` count, tool order, & emergency priority buttons). |
-| **7** | ⚖️ **Farmable Comparator** (`cogs/farm_compare.py`) | `/compare_farm` | `/set_compare_channel` | Side-by-side comparison of any 2 farmables (`Rarity`, `Grow Time`, `Pickaxe Punches`, `Gems`, `XP`, & Head-to-Head Verdict). |
-| **8** | 🌳 **Recursive Mass Planner** (`cogs/mass_planner.py`) | `/mass` | `/set_mass_channel` | Recursively traces multi-tier seed splicing trees down to base seeds, calculating exact seed shopping lists & sequential grow times. |
-| **9** | 🍳 **Cooking Oven Assistant** (`cogs/cooking_helper.py`) | `/cook` | `/set_cook_channel` | Exact **second-by-second Home Oven timelines** (`00s ➔ 16s ➔ 30s ➔ 50s`), heat settings, multi-oven shopping lists, & live countdown button. |
-| **10** | 🦸 **Crimefighter Counter Guide** (`cogs/crime_helper.py`) | `/crime` | `/set_crime_channel` | Recommended **5-Card Deck**, elemental immunities, and turn-by-turn counter rotations for every Supervillain (*Dr. Destructo*, *Dragonhand*, etc.). |
-| **11** | 🎣 **Fishing & Star Captain Guides** (`cogs/fishing_guide.py` & `cogs/star_captain.py`) | `/fish` • `/startrek` | `/set_fish_channel` • `/set_startrek_channel` | Complete **Fishing Lure & Fish Port Training** guide (`/fish`) and **Starship Bridge Station & Sector** cheat-sheet (`/startrek`). |
+| **1** | 🌱 **Harvest Timer & Calculator** (`cogs/harvest_calculator.py`) | `/harvest` | `/set_harvest_channel` | Interactive modal asking when you planted & how many trees; calculates exact **Ready Time**, **XP**, **Gems**, and **auto-pings you** when ready! |
+| **2** | 📦 **Item Stats Encyclopedia** (`cogs/item_lookup.py`) | `/item` | `/set_item_channel` | Instant lookup across all **16,490 Growtopia items**: Item ID, Rarity, Grow Time, Fist/Pickaxe Hits, Gems Drop, Chi, & `.rttex` Sprite. |
+| **3** | 🧬 **Splicing & Recipe Lookup** (`cogs/recipe_lookup.py`) | `/recipe` | `/set_recipe_channel` | Shows exact **Seed Splicing (`Seed A + Seed B`)** and **Chemical Combiner / Forge / Cooking** crafting formulas. |
+| **4** | 💰 **Trade & Rate Calculator** (`cogs/rate_calculator.py`) | `/rate` | `/set_rate_channel` | Calculates exact **BGL + DL + WL** breakdowns, `200`-item stack counts, and nearest whole-lock trades (`10/1 WL`, `200/1 DL`, `5 WL each`). |
+| **5** | 🩺 **Surgery & Malady Assistant** (`cogs/surgery_helper.py`) | `/surgery` | `/set_surgery_channel` | Complete step-by-step cheat-sheet for all **27 Standard Illnesses & Vile Vial Maladies** (`Scalpel` count, tool order, & emergency priority buttons). |
+| **6** | ⚖️ **Farmable Comparator** (`cogs/farm_compare.py`) | `/compare_farm` | `/set_compare_channel` | Side-by-side comparison of any 2 farmables (`Rarity`, `Grow Time`, `Pickaxe Punches`, `Gems`, `XP`, & Head-to-Head Verdict). |
+| **7** | 🌳 **Recursive Mass Planner** (`cogs/mass_planner.py`) | `/mass` | `/set_mass_channel` | Recursively traces multi-tier seed splicing trees down to base seeds, calculating exact seed shopping lists & sequential grow times. |
+| **8** | 🍳 **Cooking Oven Assistant** (`cogs/cooking_helper.py`) | `/cook` | `/set_cook_channel` | Exact **second-by-second Home Oven timelines** (`00s ➔ 16s ➔ 30s ➔ 50s`), heat settings, multi-oven shopping lists, & live countdown button. |
+| **9** | 🦸 **Crimefighter Counter Guide** (`cogs/crime_helper.py`) | `/crime` | `/set_crime_channel` | Recommended **5-Card Deck**, elemental immunities, and turn-by-turn counter rotations for every Supervillain (*Dr. Destructo*, *Dragonhand*, etc.). |
+| **10** | 🎣 **Fishing Guide** (`cogs/fishing_guide.py`) | `/fish` | `/set_fish_channel` | Complete **Fishing Lure & Fish Port Training** guide (`/fish`). |
+| **11** | 🚀 **Star Captain Guide** (`cogs/star_captain.py`) | `/startopia` | `/set_startrek_channel` | Complete **Startopia 2.0 Starship Bridge Station & Sector** cheat-sheet (`/startopia`). |
 | **12** | 🌍 **World Render & 403 Bypass** (`cogs/world_render.py`) | `/render` | `/set_render_channel` • `/setup_render_channel` | Bypasses Growtopia's **403 Forbidden** web error by pulling renders directly from Amazon S3, embeds high-res maps in `#🌍world-render` (under **🛠️ Growcom Tools**), and auto-fixes broken links in chat. |
 
 ---
@@ -68,10 +68,9 @@ growcom/
 │           ├── bot.py                  # Main entrypoint + 2-minute per-user cooldown gatekeeper
 │           ├── utils/
 │           │   └── helpers.py          # State loaders, admin checks, & time parsers
-│           └── cogs/                   # 11 Categorized Growtopia Tool Modules
+│           └── cogs/                   # 12 Categorized Growtopia Tool Modules
 │               ├── cooking_helper.py
 │               ├── crime_helper.py
-│               ├── daily_events.py
 │               ├── farm_compare.py
 │               ├── fishing_guide.py
 │               ├── harvest_calculator.py
