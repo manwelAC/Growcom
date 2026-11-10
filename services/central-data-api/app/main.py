@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from fastapi import FastAPI
-from app.api.v1 import converter, items, wiki
+from app.api.v1 import converter, items, wiki, world
 from app.config import settings
 from app.core.items_parser import items_index
 
@@ -34,6 +34,7 @@ app = FastAPI(
 app.include_router(items.router, prefix="/api/v1")
 app.include_router(wiki.router, prefix="/api/v1")
 app.include_router(converter.router, prefix="/api/v1")
+app.include_router(world.router, prefix="/api/v1")
 
 
 @app.api_route("/", methods=["GET", "HEAD"], tags=["system"])

@@ -14,7 +14,7 @@
 
 ---
 
-## ✨ Complete Suite of 11 Categorized Growtopia Tools
+## ✨ Complete Suite of 12 Categorized Growtopia Tools
 
 Every tool in **Growcom Events by Manwel** lives in its own isolated module inside [`bots/event-bot/src/cogs/`](bots/event-bot/src/cogs/), features a **2-minute per-user anti-spam cooldown**, and can be locked to its own dedicated Discord channel by Server Admins:
 
@@ -31,6 +31,7 @@ Every tool in **Growcom Events by Manwel** lives in its own isolated module insi
 | **9** | 🍳 **Cooking Oven Assistant** (`cogs/cooking_helper.py`) | `/cook` | `/set_cook_channel` | Exact **second-by-second Home Oven timelines** (`00s ➔ 16s ➔ 30s ➔ 50s`), heat settings, multi-oven shopping lists, & live countdown button. |
 | **10** | 🦸 **Crimefighter Counter Guide** (`cogs/crime_helper.py`) | `/crime` | `/set_crime_channel` | Recommended **5-Card Deck**, elemental immunities, and turn-by-turn counter rotations for every Supervillain (*Dr. Destructo*, *Dragonhand*, etc.). |
 | **11** | 🎣 **Fishing & Star Captain Guides** (`cogs/fishing_guide.py` & `cogs/star_captain.py`) | `/fish` • `/startrek` | `/set_fish_channel` • `/set_startrek_channel` | Complete **Fishing Lure & Fish Port Training** guide (`/fish`) and **Starship Bridge Station & Sector** cheat-sheet (`/startrek`). |
+| **12** | 🌍 **World Render & 403 Bypass** (`cogs/world_render.py`) | `/render` | `/set_render_channel` • `/setup_render_channel` | Bypasses Growtopia's **403 Forbidden** web error by pulling renders directly from Amazon S3, embeds high-res maps in `#🌍world-render` (under **🛠️ Growcom Tools**), and auto-fixes broken links in chat. |
 
 ---
 
@@ -79,7 +80,8 @@ growcom/
 │               ├── rate_calculator.py
 │               ├── recipe_lookup.py
 │               ├── star_captain.py
-│               └── surgery_helper.py
+│               ├── surgery_helper.py
+│               └── world_render.py
 ├── services/
 │   └── central-data-api/
 │       ├── data/

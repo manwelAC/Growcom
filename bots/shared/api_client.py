@@ -81,3 +81,11 @@ class CentralDataClient:
             return None
         resp.raise_for_status()
         return resp.content
+
+    async def get_world_render(self, query: str) -> dict[str, Any] | None:
+        """Fetch world render metadata and S3 403-bypass URL."""
+        resp = await self._client.get("/api/v1/world/render", params={"query": query})
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return resp.json()

@@ -29,7 +29,7 @@ DEFAULT_MEMBER_ROLE_ID = 1568495447067332608
 
 INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
     {
-        "title": "🌱 Tool 1/11 — Growth Reminder & Harvest Timer (`/harvest`)",
+        "title": "🌱 Tool 1/12 — Growth Reminder & Harvest Timer (`/harvest`)",
         "color": 0x2ECC71,
         "channel": "<#1567214340291956857>",
         "purpose": (
@@ -49,7 +49,7 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
         ),
     },
     {
-        "title": "📦 Tool 2/11 — Official Item Lookup (`/item`)",
+        "title": "📦 Tool 2/12 — Official Item Lookup (`/item`)",
         "color": 0x3498DB,
         "channel": "<#1567216131616411738>",
         "purpose": (
@@ -67,7 +67,7 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
         ),
     },
     {
-        "title": "🧬 Tool 3/11 — Splicing Recipe Guide (`/recipe`)",
+        "title": "🧬 Tool 3/12 — Splicing Recipe Guide (`/recipe`)",
         "color": 0x9B59B6,
         "channel": "<#1567216421593944084>",
         "purpose": (
@@ -85,7 +85,7 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
         ),
     },
     {
-        "title": "💰 Tool 4/11 — Trade Rate & WL/DL/BGL Calculator (`/rate`)",
+        "title": "💰 Tool 4/12 — Trade Rate & WL/DL/BGL Calculator (`/rate`)",
         "color": 0xF1C40F,
         "channel": "<#1567220472859594853>",
         "purpose": (
@@ -103,7 +103,7 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
         ),
     },
     {
-        "title": "🩺 Tool 5/11 — Surgery & Malady Helper (`/surgery`)",
+        "title": "🩺 Tool 5/12 — Surgery & Malady Helper (`/surgery`)",
         "color": 0xE74C3C,
         "channel": "<#1567231718627483688>",
         "purpose": (
@@ -122,7 +122,7 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
         ),
     },
     {
-        "title": "⚖️ Tool 6/11 — Farmable Profit & Gem Comparator (`/compare_farm`)",
+        "title": "⚖️ Tool 6/12 — Farmable Profit & Gem Comparator (`/compare_farm`)",
         "color": 0x1ABC9C,
         "channel": "<#1567233119088803941>",
         "purpose": (
@@ -139,7 +139,7 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
         ),
     },
     {
-        "title": "🌳 Tool 7/11 — Mass Production & Splicing Planner (`/mass`)",
+        "title": "🌳 Tool 7/12 — Mass Production & Splicing Planner (`/mass`)",
         "color": 0x27AE60,
         "channel": "<#1567236019282120836>",
         "purpose": (
@@ -156,7 +156,7 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
         ),
     },
     {
-        "title": "🍳 Tool 8/11 — Home Oven Cooking Timer & Helper (`/cook`)",
+        "title": "🍳 Tool 8/12 — Home Oven Cooking Timer & Helper (`/cook`)",
         "color": 0xE67E22,
         "channel": "<#1567238220972826654>",
         "purpose": (
@@ -175,7 +175,7 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
         ),
     },
     {
-        "title": "🦸 Tool 9/11 — Crime Wave Supervillain Guide (`/crime`)",
+        "title": "🦸 Tool 9/12 — Crime Wave Supervillain Guide (`/crime`)",
         "color": 0xC0392B,
         "channel": "<#1567240061320171713>",
         "purpose": (
@@ -193,7 +193,7 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
         ),
     },
     {
-        "title": "🎣 Tool 10/11 — Fishing & Fish Port Guide (`/fish`)",
+        "title": "🎣 Tool 10/12 — Fishing & Fish Port Guide (`/fish`)",
         "color": 0x2980B9,
         "channel": "<#1567240147576291389>",
         "purpose": (
@@ -211,7 +211,7 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
         ),
     },
     {
-        "title": "🚀 Tool 11/11 — Startopia 2.0 Voyage & Ship Guide (`/startopia`)",
+        "title": "🚀 Tool 11/12 — Startopia 2.0 Voyage & Ship Guide (`/startopia`)",
         "color": 0x8E44AD,
         "channel": "<#1567240655774941264>",
         "purpose": (
@@ -230,13 +230,38 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
             "- `/startopia mission:Ship Setup & Sector Guide (Startopia 2.0)`"
         ),
     },
+    {
+        "title": "🌍 Tool 12/12 — World Render & 403 Bypass (`/render`)",
+        "color": 0x16A085,
+        "channel_key": "render_channel_id",
+        "channel": "#🌍world-render",
+        "purpose": (
+            "Bypasses Growtopia's official **403 Forbidden** error to fetch and display high-resolution "
+            "world map renders directly from Amazon S3 storage!"
+        ),
+        "how_to_use": (
+            "1. Go to **#🌍world-render** and type **`/render`**.\n"
+            "2. Enter any **World Name** (e.g. `FRIENDSY`, `START`, `BUYGHC`) or paste the official Growtopia link.\n"
+            "3. If someone pastes a `growtopiagame.com/worlds/...` link in chat, the bot also auto-bypasses it!"
+        ),
+        "examples": (
+            "- `/render world_or_url:FRIENDSY`\n"
+            "- `/render world_or_url:START`\n"
+            "- `/render world_or_url:http://www.growtopiagame.com/worlds/friendsy.png`"
+        ),
+    },
 ]
 
 
-def build_single_tool_embed(spec: dict[str, Any]) -> discord.Embed:
+def build_single_tool_embed(spec: dict[str, Any], state: dict[str, Any] | None = None) -> discord.Embed:
+    ch_text = spec["channel"]
+    ch_key = spec.get("channel_key")
+    if ch_key and state and state.get(ch_key):
+        ch_text = f"<#{state[ch_key]}>"
+
     embed = discord.Embed(
         title=spec["title"],
-        description=f"📍 **Dedicated Channel:** {spec['channel']}\n\n{spec['purpose']}",
+        description=f"📍 **Dedicated Channel:** {ch_text}\n\n{spec['purpose']}",
         color=spec["color"],
         timestamp=datetime.now(EVENT_TZ),
     )
@@ -317,7 +342,7 @@ class ToolGuidesCog(commands.Cog):
                 name="📖tool-guides",
                 category=tools_cat,
                 position=0,
-                topic="📖 Official Growcom Tools Command Guide — Read-only step-by-step tutorial for each of the 11 Growtopia tools.",
+                topic="📖 Official Growcom Tools Command Guide — Read-only step-by-step tutorial for each of the 12 Growtopia tools.",
                 overwrites=overwrites,
                 reason="Create read-only #📖tool-guides channel at top of 🛠️ Growcom Tools",
             )
@@ -333,7 +358,7 @@ class ToolGuidesCog(commands.Cog):
         if created_new or force_repost:
             msg_ids: list[str] = []
             for spec in INDIVIDUAL_TOOL_GUIDES:
-                embed = build_single_tool_embed(spec)
+                embed = build_single_tool_embed(spec, state)
                 msg = await guide_ch.send(embed=embed)
                 msg_ids.append(str(msg.id))
                 await asyncio.sleep(0.35)
@@ -367,7 +392,7 @@ class ToolGuidesCog(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         ch = await self.provision_tool_guides_channel(interaction.guild, force_repost=True)
         await interaction.followup.send(
-            f"✅ Posted all **11 individual tool guide cards** in read-only {ch.mention}!",
+            f"✅ Posted all **12 individual tool guide cards** in read-only {ch.mention}!",
             ephemeral=True,
         )
 
