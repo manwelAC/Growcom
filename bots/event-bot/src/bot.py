@@ -74,8 +74,8 @@ class GrowcomCommandTree(app_commands.CommandTree):
 
         cmd_name = interaction.command.name
 
-        # Admin /set_..., /setup_..., and /automod_... configuration commands are never rate-limited
-        if cmd_name.startswith(("set_", "setup_", "automod_")):
+        # Admin /set_... and /setup_... configuration commands are never rate-limited
+        if cmd_name.startswith(("set_", "setup_")):
             return True
 
         # 1. Verify channel lock first so typing in the wrong channel doesn't waste the user's 2-min cooldown

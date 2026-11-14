@@ -232,7 +232,7 @@ class VerificationGateCog(commands.Cog):
                 "Welcome to the official **Growcom** community & Growtopia marketplace!\n\n"
                 "To protect our server from bots and scammers, all channels are hidden until you verify.\n\n"
                 "### 📜 Community Rules\n"
-                "1. **Be Respectful:** No hate speech, harassment, or explicit profanity (AutoMod is active).\n"
+                "1. **Be Respectful:** No hate speech or harassment.\n"
                 "2. **Safe Trading Only:** Follow all guidelines in `#📜trading-info` and report scammers with `/report_scammer`.\n"
                 "3. **Use Designated Channels:** Keep tool commands (`/harvest`, `/item`, `/recipe`, `/mass`, etc.) in their matching `#🛠️Growcom Tools` channels.\n\n"
                 "### ✅ How to Unlock the Server\n"
