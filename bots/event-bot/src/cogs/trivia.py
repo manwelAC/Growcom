@@ -951,6 +951,10 @@ class TriviaCog(commands.Cog, name="Daily Growtopia Trivia"):
         month_str = stats.get("current_month", get_current_gt_month())
         players: dict[str, Any] = stats.get("players", {})
 
+        state = load_state()
+        play_ch_id = state.get("trivia_channel_id")
+        play_ch_mention = f"<#{play_ch_id}>" if play_ch_id else "`#🎯daily-trivia`"
+
         sorted_players = sorted(
             players.items(),
             key=lambda x: (
@@ -966,7 +970,7 @@ class TriviaCog(commands.Cog, name="Daily Growtopia Trivia"):
             description=(
                 f"**💎 Monthly Grand Prize:** **{GRAND_PRIZE_TEXT}**\n"
                 f"📅 **Active Season:** **`{month_str} Championship`**\n"
-                f"🎯 **Participate Daily in:** <#1568907253854113855> *(or #🎯daily-trivia)*\n\n"
+                f"🎯 **Participate Daily in:** {play_ch_mention}\n\n"
                 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 "**Top 10 Contenders (Points • Streak • Avg Speed)**\n"
             ),
