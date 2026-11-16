@@ -54,7 +54,7 @@ DEFAULT_MEMBER_ROLE_ID = 1568495447067332608
 
 TRIVIA_STATS_FILE = PROJECT_ROOT / "bots" / "event-bot" / "data" / "trivia_stats.json"
 GRAND_PRIZE_TEXT = "💎 10 Diamond Locks (Sponsored by Manwel)"
-SESSION_TIMEOUT_SECONDS = 20.0
+SESSION_TIMEOUT_SECONDS = 45.0
 MIN_ACCOUNT_AGE_DAYS = 7  # Anti-alt threshold
 
 # ==============================================================================
@@ -532,8 +532,9 @@ class TriviaPlayDeskView(discord.ui.View):
 
 class TriviaSessionView(discord.ui.View):
     """
-    Ephemeral 20-Second Anti-Wiki Challenge Session.
-    Randomizes option order, enforces strict 20-second timeout, and tracks elapsed milliseconds.
+    Ephemeral 45-Second Anti-Wiki Challenge Session.
+    Randomizes option order, enforces 45-second timer, defers instantly on click,
+    and stays active for 180s so late clicks are handled gracefully instead of timing out.
     """
 
     def __init__(
@@ -543,13 +544,15 @@ class TriviaSessionView(discord.ui.View):
         user_name: str,
         question_data: dict[str, Any],
         today_date: str,
+        initial_interaction: discord.Interaction | None = None,
     ) -> None:
-        super().__init__(timeout=SESSION_TIMEOUT_SECONDS)
+        super().__init__(timeout=180.0)  # Keep listener alive for 3 minutes
         self.cog = cog
         self.user_id = user_id
         self.user_name = user_name
         self.q = question_data
         self.today_date = today_date
+        self.initial_interaction = initial_interaction
         self.start_time = time.time()
         self.answered = False
 
@@ -581,7 +584,19 @@ class TriviaSessionView(discord.ui.View):
                 return
 
             self.answered = True
+            # IMMEDIATELY acknowledge the interaction to Discord within 50ms so "didn't respond in time" never happens!
+            await interaction.response.defer()
+
             elapsed = max(0.1, round(time.time() - self.start_time, 2))
+
+            # Check if submitted within the 45.0s time limit
+            is_expired = (elapsed > SESSION_TIMEOUT_SECONDS)
+            if is_expired:
+                is_correct = False
+                actual_choice = f"{chosen_option} (Submitted in {elapsed:.1f}s - Expired!)"
+            else:
+                is_correct = (chosen_option == self.q["answer"])
+                actual_choice = chosen_option
 
             # Disable all buttons
             for child in self.children:
@@ -590,9 +605,8 @@ class TriviaSessionView(discord.ui.View):
                     if child.label == self.q["answer"]:
                         child.style = discord.ButtonStyle.success
                     elif child.label == chosen_option:
-                        child.style = discord.ButtonStyle.danger
+                        child.style = discord.ButtonStyle.danger if not is_correct else discord.ButtonStyle.success
 
-            is_correct = (chosen_option == self.q["answer"])
             result_embed = await self.cog.record_player_answer(
                 user_id=self.user_id,
                 user_name=self.user_name,
@@ -600,10 +614,10 @@ class TriviaSessionView(discord.ui.View):
                 is_correct=is_correct,
                 elapsed_seconds=elapsed,
                 question_data=self.q,
-                chosen_option=chosen_option,
+                chosen_option=actual_choice,
             )
 
-            await interaction.response.edit_message(embed=result_embed, view=self)
+            await interaction.edit_original_response(embed=result_embed, view=self)
             self.stop()
 
         return callback
@@ -619,15 +633,30 @@ class TriviaSessionView(discord.ui.View):
                 if child.label == self.q["answer"]:
                     child.style = discord.ButtonStyle.success
 
-        timeout_embed = await self.cog.record_player_answer(
+        await self.cog.record_player_answer(
             user_id=self.user_id,
             user_name=self.user_name,
             today_date=self.today_date,
             is_correct=False,
             elapsed_seconds=SESSION_TIMEOUT_SECONDS,
             question_data=self.q,
-            chosen_option="[Time Ran Out]",
+            chosen_option="[Abandoned Session]",
         )
+        if self.initial_interaction:
+            try:
+                timeout_embed = discord.Embed(
+                    title="⏱️ Session Expired",
+                    description=(
+                        f"Your trivia challenge session timed out!\n\n"
+                        f"✅ **Correct Answer was:** **`{self.q['answer']}`**\n\n"
+                        f"*(Come back tomorrow at 00:00 GT Time to earn more points!)*"
+                    ),
+                    color=0xFF5252,
+                )
+                timeout_embed.set_footer(text=FOOTER_TEXT)
+                await self.initial_interaction.edit_original_response(embed=timeout_embed, view=self)
+            except Exception:
+                pass
         logger.info("Trivia session timed out for user %s", self.user_id)
 
 
@@ -682,7 +711,7 @@ class TriviaCog(commands.Cog, name="Daily Growtopia Trivia"):
 
         if is_correct:
             base_pts = 100
-            speed_pts = max(0, int((SESSION_TIMEOUT_SECONDS - min(SESSION_TIMEOUT_SECONDS, elapsed_seconds)) * 3))
+            speed_pts = max(0, int((SESSION_TIMEOUT_SECONDS - min(SESSION_TIMEOUT_SECONDS, elapsed_seconds)) * 1.35))
             streak_pts = min(50, (current_streak + 1) * 5)
             total_earned = base_pts + speed_pts + streak_pts
 
@@ -801,15 +830,16 @@ class TriviaCog(commands.Cog, name="Daily Growtopia Trivia"):
             user_name=interaction.user.display_name,
             question_data=question,
             today_date=today_date,
+            initial_interaction=interaction,
         )
 
         embed = discord.Embed(
             title=f"🎯 Daily Growtopia Trivia • {question['category']}",
             description=(
-                f"**Date:** `{today_date}` • **Time Limit:** `20.0 Seconds`\n\n"
+                f"**Date:** `{today_date}` • **Time Limit:** `{SESSION_TIMEOUT_SECONDS:.0f} Seconds`\n\n"
                 f"**Question:**\n"
                 f"> **{question['question']}**\n\n"
-                f"⏱️ **Speed counts!** Click the correct button below before the 20-second timer expires."
+                f"⏱️ **Speed counts!** Click the correct button below before the {SESSION_TIMEOUT_SECONDS:.0f}-second timer expires."
             ),
             color=0xFFD700,  # Gold
         )
@@ -1392,6 +1422,35 @@ class TriviaCog(commands.Cog, name="Daily Growtopia Trivia"):
             f"Scores have been archived and reset for the new season.",
             ephemeral=True,
         )
+
+    @app_commands.command(
+        name="trivia_reset_player",
+        description="Admin: Reset a player's daily trivia attempt so they can replay today's question",
+    )
+    @app_commands.describe(user="The member whose daily trivia attempt should be reset")
+    async def trivia_reset_player_cmd(
+        self,
+        interaction: discord.Interaction,
+        user: discord.Member,
+    ) -> None:
+        if not is_server_manager(interaction):
+            await interaction.response.send_message("❌ Admin permission required.", ephemeral=True)
+            return
+
+        stats = load_trivia_stats()
+        uid_str = str(user.id)
+        if uid_str in stats.get("players", {}):
+            stats["players"][uid_str]["last_played_date"] = ""
+            save_trivia_stats(stats)
+            await interaction.response.send_message(
+                f"✅ Reset daily trivia attempt for {user.mention}! They can now click **`[ 🎯 Play Today's Trivia ]`** to answer.",
+                ephemeral=True,
+            )
+        else:
+            await interaction.response.send_message(
+                f"⚠️ {user.mention} has not recorded any trivia stats yet (attempt is already available).",
+                ephemeral=True,
+            )
 
 
 async def setup(bot: EventBot) -> None:
