@@ -22,6 +22,7 @@ Commands:
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING, Any
 
 import discord
@@ -572,10 +573,20 @@ class XPCalculatorCog(commands.Cog, name="Level & EXP Calculator"):
         existing_ch = guild.get_channel(int(ch_id)) if ch_id else None
 
         if not existing_ch:
+            matching: list[discord.TextChannel] = []
             for ch in guild.text_channels:
-                if ch.name in ("✨xp-calculator", "xp-calculator", "level-calculator"):
-                    existing_ch = ch
-                    break
+                clean = re.sub(r"[^a-zA-Z0-9]", "", ch.name.lower())
+                if ("xp" in clean and "calc" in clean) or ("level" in clean and "calc" in clean):
+                    matching.append(ch)
+            if matching:
+                existing_ch = matching[0]
+                if len(matching) > 1:
+                    for extra_ch in matching[1:]:
+                        try:
+                            logger.info("Cleaning up duplicate channel %s (%s)", extra_ch.name, extra_ch.id)
+                            await extra_ch.delete(reason="Clean up auto-provisioned duplicate channel")
+                        except Exception as exc:
+                            logger.warning("Could not delete duplicate channel %s: %s", extra_ch.id, exc)
 
         overwrites = {
             everyone_role: discord.PermissionOverwrite(view_channel=False),

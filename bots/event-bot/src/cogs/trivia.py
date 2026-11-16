@@ -27,6 +27,7 @@ import hashlib
 import json
 import logging
 import random
+import re
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -793,7 +794,12 @@ class TriviaCog(commands.Cog, name="Daily Growtopia Trivia"):
             )
             return
 
-        # 3. Fetch today's question
+        # 3. Lock daily attempt immediately so the user gets strictly 1 attempt today (no closing & retrying)
+        player["name"] = interaction.user.display_name
+        player["last_played_date"] = today_date
+        save_trivia_stats(stats)
+
+        # 4. Fetch today's question
         question = get_daily_question(today_date)
         view = TriviaSessionView(
             cog=self,
@@ -1148,10 +1154,20 @@ class TriviaCog(commands.Cog, name="Daily Growtopia Trivia"):
         play_ch_id = state.get("trivia_channel_id")
         play_ch = guild.get_channel(int(play_ch_id)) if play_ch_id else None
         if not play_ch:
+            matching_play: list[discord.TextChannel] = []
             for ch in guild.text_channels:
-                if ch.name in ("🎯daily-trivia", "daily-trivia", "trivia"):
-                    play_ch = ch
-                    break
+                clean = re.sub(r"[^a-zA-Z0-9]", "", ch.name.lower())
+                if "dailytrivia" in clean or ("trivia" in clean and "leaderboard" not in clean):
+                    matching_play.append(ch)
+            if matching_play:
+                play_ch = matching_play[0]
+                if len(matching_play) > 1:
+                    for extra_ch in matching_play[1:]:
+                        try:
+                            logger.info("Cleaning up duplicate trivia play channel %s (%s)", extra_ch.name, extra_ch.id)
+                            await extra_ch.delete(reason="Clean up auto-provisioned duplicate channel")
+                        except Exception as exc:
+                            logger.warning("Could not delete duplicate channel %s: %s", extra_ch.id, exc)
 
         if not play_ch:
             play_ch = await guild.create_text_channel(
@@ -1168,10 +1184,20 @@ class TriviaCog(commands.Cog, name="Daily Growtopia Trivia"):
         lb_ch_id = state.get("trivia_leaderboard_channel_id")
         lb_ch = guild.get_channel(int(lb_ch_id)) if lb_ch_id else None
         if not lb_ch:
+            matching_lb: list[discord.TextChannel] = []
             for ch in guild.text_channels:
-                if ch.name in ("🏆trivia-leaderboards", "trivia-leaderboards", "trivia-leaderboard"):
-                    lb_ch = ch
-                    break
+                clean = re.sub(r"[^a-zA-Z0-9]", "", ch.name.lower())
+                if "trivialeaderboard" in clean or ("trivia" in clean and "leaderboard" in clean):
+                    matching_lb.append(ch)
+            if matching_lb:
+                lb_ch = matching_lb[0]
+                if len(matching_lb) > 1:
+                    for extra_ch in matching_lb[1:]:
+                        try:
+                            logger.info("Cleaning up duplicate trivia leaderboard channel %s (%s)", extra_ch.name, extra_ch.id)
+                            await extra_ch.delete(reason="Clean up auto-provisioned duplicate channel")
+                        except Exception as exc:
+                            logger.warning("Could not delete duplicate channel %s: %s", extra_ch.id, exc)
 
         if not lb_ch:
             lb_ch = await guild.create_text_channel(
