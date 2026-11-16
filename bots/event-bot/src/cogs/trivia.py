@@ -27,7 +27,6 @@ import hashlib
 import json
 import logging
 import random
-import re
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -794,12 +793,7 @@ class TriviaCog(commands.Cog, name="Daily Growtopia Trivia"):
             )
             return
 
-        # 3. Lock daily attempt immediately so the user gets strictly 1 attempt today (no closing & retrying)
-        player["name"] = interaction.user.display_name
-        player["last_played_date"] = today_date
-        save_trivia_stats(stats)
-
-        # 4. Fetch today's question
+        # 3. Fetch today's question
         question = get_daily_question(today_date)
         view = TriviaSessionView(
             cog=self,
@@ -1153,60 +1147,80 @@ class TriviaCog(commands.Cog, name="Daily Growtopia Trivia"):
         # 1. Play Channel (#🎯daily-trivia)
         play_ch_id = state.get("trivia_channel_id")
         play_ch = guild.get_channel(int(play_ch_id)) if play_ch_id else None
+
+        # Match by topic signature [growcom:trivia_play] (immune to channel renaming!)
         if not play_ch:
-            matching_play: list[discord.TextChannel] = []
             for ch in guild.text_channels:
-                clean = re.sub(r"[^a-zA-Z0-9]", "", ch.name.lower())
-                if "dailytrivia" in clean or ("trivia" in clean and "leaderboard" not in clean):
-                    matching_play.append(ch)
-            if matching_play:
-                play_ch = matching_play[0]
-                if len(matching_play) > 1:
-                    for extra_ch in matching_play[1:]:
-                        try:
-                            logger.info("Cleaning up duplicate trivia play channel %s (%s)", extra_ch.name, extra_ch.id)
-                            await extra_ch.delete(reason="Clean up auto-provisioned duplicate channel")
-                        except Exception as exc:
-                            logger.warning("Could not delete duplicate channel %s: %s", extra_ch.id, exc)
+                if ch.topic and "[growcom:trivia_play]" in ch.topic:
+                    play_ch = ch
+                    break
+
+        # Match by known names or category
+        if not play_ch:
+            for ch in guild.text_channels:
+                name_l = ch.name.lower()
+                if ch.name in ("🎯daily-trivia", "daily-trivia", "trivia") or (
+                    target_cat and ch.category_id == target_cat.id and "trivia" in name_l and "leaderboard" not in name_l
+                ):
+                    play_ch = ch
+                    break
 
         if not play_ch:
             play_ch = await guild.create_text_channel(
                 name="🎯daily-trivia",
                 category=target_cat,
                 overwrites=play_overwrites,
-                topic="Growcom Daily GT Item Trivia — Compete daily for the 10 Diamond Locks monthly grand prize!",
+                topic="Growcom Daily GT Item Trivia [growcom:trivia_play] — Compete daily for the 10 Diamond Locks monthly grand prize!",
             )
             force_repost = True
+        else:
+            # Stamp topic signature if missing so future renames never cause recreation
+            if not play_ch.topic or "[growcom:trivia_play]" not in play_ch.topic:
+                new_topic = f"{play_ch.topic or 'Growcom Daily GT Item Trivia'} [growcom:trivia_play]".strip()
+                try:
+                    await play_ch.edit(topic=new_topic)
+                except Exception:
+                    pass
 
         state["trivia_channel_id"] = play_ch.id
 
         # 2. Leaderboard Channel (#🏆trivia-leaderboards)
         lb_ch_id = state.get("trivia_leaderboard_channel_id")
         lb_ch = guild.get_channel(int(lb_ch_id)) if lb_ch_id else None
+
+        # Match by topic signature [growcom:trivia_lb] (immune to channel renaming!)
         if not lb_ch:
-            matching_lb: list[discord.TextChannel] = []
             for ch in guild.text_channels:
-                clean = re.sub(r"[^a-zA-Z0-9]", "", ch.name.lower())
-                if "trivialeaderboard" in clean or ("trivia" in clean and "leaderboard" in clean):
-                    matching_lb.append(ch)
-            if matching_lb:
-                lb_ch = matching_lb[0]
-                if len(matching_lb) > 1:
-                    for extra_ch in matching_lb[1:]:
-                        try:
-                            logger.info("Cleaning up duplicate trivia leaderboard channel %s (%s)", extra_ch.name, extra_ch.id)
-                            await extra_ch.delete(reason="Clean up auto-provisioned duplicate channel")
-                        except Exception as exc:
-                            logger.warning("Could not delete duplicate channel %s: %s", extra_ch.id, exc)
+                if ch.topic and "[growcom:trivia_lb]" in ch.topic:
+                    lb_ch = ch
+                    break
+
+        # Match by known names or category
+        if not lb_ch:
+            for ch in guild.text_channels:
+                name_l = ch.name.lower()
+                if ch.name in ("🏆trivia-leaderboards", "trivia-leaderboards", "trivia-leaderboard") or (
+                    target_cat and ch.category_id == target_cat.id and "leaderboard" in name_l and "trivia" in name_l
+                ):
+                    lb_ch = ch
+                    break
 
         if not lb_ch:
             lb_ch = await guild.create_text_channel(
                 name="🏆trivia-leaderboards",
                 category=target_cat,
                 overwrites=lb_overwrites,
-                topic="Growcom Monthly Trivia Championship Standings — 10 Diamond Locks awarded on the 1st of every month!",
+                topic="Growcom Monthly Trivia Championship Standings [growcom:trivia_lb] — 10 Diamond Locks awarded on the 1st of every month!",
             )
             force_repost = True
+        else:
+            # Stamp topic signature if missing so future renames never cause recreation
+            if not lb_ch.topic or "[growcom:trivia_lb]" not in lb_ch.topic:
+                new_topic = f"{lb_ch.topic or 'Growcom Monthly Trivia Championship Standings'} [growcom:trivia_lb]".strip()
+                try:
+                    await lb_ch.edit(topic=new_topic)
+                except Exception:
+                    pass
 
         state["trivia_leaderboard_channel_id"] = lb_ch.id
         save_state(state)

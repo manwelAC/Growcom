@@ -22,7 +22,6 @@ Commands:
 from __future__ import annotations
 
 import logging
-import re
 from typing import TYPE_CHECKING, Any
 
 import discord
@@ -572,21 +571,25 @@ class XPCalculatorCog(commands.Cog, name="Level & EXP Calculator"):
         ch_id = state.get("xp_channel_id")
         existing_ch = guild.get_channel(int(ch_id)) if ch_id else None
 
+        # 1. Match by persistent topic signature [growcom:xp] (immune to channel renaming!)
         if not existing_ch:
-            matching: list[discord.TextChannel] = []
             for ch in guild.text_channels:
-                clean = re.sub(r"[^a-zA-Z0-9]", "", ch.name.lower())
-                if ("xp" in clean and "calc" in clean) or ("level" in clean and "calc" in clean):
-                    matching.append(ch)
-            if matching:
-                existing_ch = matching[0]
-                if len(matching) > 1:
-                    for extra_ch in matching[1:]:
-                        try:
-                            logger.info("Cleaning up duplicate channel %s (%s)", extra_ch.name, extra_ch.id)
-                            await extra_ch.delete(reason="Clean up auto-provisioned duplicate channel")
-                        except Exception as exc:
-                            logger.warning("Could not delete duplicate channel %s: %s", extra_ch.id, exc)
+                if ch.topic and "[growcom:xp]" in ch.topic:
+                    existing_ch = ch
+                    break
+
+        # 2. Match by known names or fuzzy topic/category keywords
+        if not existing_ch:
+            for ch in guild.text_channels:
+                name_l = ch.name.lower()
+                topic_l = (ch.topic or "").lower()
+                if (
+                    name_l in ("✨xp-calculator", "xp-calculator", "level-calculator", "xp", "level")
+                    or "growcom level & exp" in topic_l
+                    or (tools_cat and ch.category_id == tools_cat.id and ("xp" in name_l or "level" in name_l))
+                ):
+                    existing_ch = ch
+                    break
 
         overwrites = {
             everyone_role: discord.PermissionOverwrite(view_channel=False),
@@ -610,11 +613,19 @@ class XPCalculatorCog(commands.Cog, name="Level & EXP Calculator"):
                 name="✨xp-calculator",
                 category=tools_cat,
                 overwrites=overwrites,
-                topic="Growcom Level & EXP Grind Calculator — Exact block requirements to Level 125",
+                topic="Growcom Level & EXP Grind Calculator [growcom:xp] — Exact block requirements to Level 125",
                 reason="Auto-provisioned Growcom Tools channel",
             )
             force_repost = True
         else:
+            # Ensure topic signature is stamped so future renames never cause recreation
+            if not existing_ch.topic or "[growcom:xp]" not in existing_ch.topic:
+                new_topic = f"{existing_ch.topic or 'Growcom Level & EXP Grind Calculator'} [growcom:xp]".strip()
+                try:
+                    await existing_ch.edit(topic=new_topic)
+                except Exception:
+                    pass
+
             if existing_ch.category_id != (tools_cat.id if tools_cat else None):
                 try:
                     await existing_ch.edit(category=tools_cat)
