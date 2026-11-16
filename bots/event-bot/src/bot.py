@@ -57,6 +57,7 @@ COMMAND_CHANNEL_KEYS: dict[str, str] = {
     "feedback": "feedback_channel_id",
     "suggest": "suggestions_channel_id",
     "gacha": "gacha_channel_id",
+    "xp": "xp_channel_id",
 }
 
 

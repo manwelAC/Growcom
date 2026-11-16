@@ -14,7 +14,7 @@
 
 ---
 
-## ✨ Complete Suite of 12 Categorized Growtopia Tools
+## ✨ Complete Suite of 13 Categorized Growtopia Tools
 
 Every tool in **Growcom Events by Manwel** lives in its own isolated module inside [`bots/event-bot/src/cogs/`](bots/event-bot/src/cogs/), features a **2-minute per-user anti-spam cooldown**, and can be locked to its own dedicated Discord channel by Server Admins:
 
@@ -32,6 +32,7 @@ Every tool in **Growcom Events by Manwel** lives in its own isolated module insi
 | **10** | 🎣 **Fishing Guide** (`cogs/fishing_guide.py`) | `/fish` | `/set_fish_channel` | Complete **Fishing Lure & Fish Port Training** guide (`/fish`). |
 | **11** | 🚀 **Star Captain Guide** (`cogs/star_captain.py`) | `/startopia` | `/set_startrek_channel` | Complete **Startopia 2.0 Starship Bridge Station & Sector** cheat-sheet (`/startopia`). |
 | **12** | 🌍 **World Render & 403 Bypass** (`cogs/world_render.py`) | `/render` | `/set_render_channel` • `/setup_render_channel` | Bypasses Growtopia's **403 Forbidden** web error by pulling renders directly from Amazon S3, embeds high-res maps in `#🌍world-render` (under **🛠️ Growcom Tools**), and auto-fixes broken links in chat. |
+| **13** | ✨ **Level & EXP Grind Calculator** (`cogs/xp_calculator.py`) | `/xp` | `/set_xp_channel` • `/setup_xp_channel` | Deterministic, zero-RNG calculator for remaining XP and blocks to break to reach **Level 125** (or custom targets), 200-item inventory stacks, pickaxe hits, and milestone checkpoints. |
 
 ---
 

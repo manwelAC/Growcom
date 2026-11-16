@@ -231,7 +231,7 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
         ),
     },
     {
-        "title": "🌍 Tool 12/12 — World Render & 403 Bypass (`/render`)",
+        "title": "🌍 Tool 12/13 — World Render & 403 Bypass (`/render`)",
         "color": 0x16A085,
         "channel_key": "render_channel_id",
         "channel": "#🌍world-render",
@@ -248,6 +248,27 @@ INDIVIDUAL_TOOL_GUIDES: list[dict[str, Any]] = [
             "- `/render world_or_url:FRIENDSY`\n"
             "- `/render world_or_url:START`\n"
             "- `/render world_or_url:http://www.growtopiagame.com/worlds/friendsy.png`"
+        ),
+    },
+    {
+        "title": "✨ Tool 13/13 — Level & EXP Grind Calculator (`/xp`)",
+        "color": 0x00E676,
+        "channel_key": "xp_channel_id",
+        "channel": "#✨xp-calculator",
+        "purpose": (
+            "Calculates the **100% exact** remaining XP and number of blocks needed to break to reach "
+            "**Level 125** (or custom target), including 200-item inventory stacks, pickaxe punches, "
+            "and milestone checkpoints (Level 50 Mini-You, Level 100 Golden Name)!"
+        ),
+        "how_to_use": (
+            "1. Go to **#✨xp-calculator** and type **`/xp`**.\n"
+            "2. Enter your `current_level` (1–124) and the `block` you plan to break (e.g. Laser Grid).\n"
+            "3. Optional: Set `target_level` (defaults to 125) or `current_xp` progress."
+        ),
+        "examples": (
+            "- `/xp current_level:62 block:Laser Grid`\n"
+            "- `/xp current_level:40 block:Chandelier target_level:50`\n"
+            "- `/xp current_level:85 block:Pepper Tree current_xp:50000`"
         ),
     },
 ]
