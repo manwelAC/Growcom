@@ -109,28 +109,115 @@ def generate_progress_bar(pct: float, length: int = 12) -> str:
     return f"[{'█' * filled}{'░' * empty}]"
 
 
+def resolve_item_mechanics(item_data: dict[str, Any]) -> dict[str, Any]:
+    """
+    Resolve item mechanics, distinguishing standard block breaking from
+    Bountiful mature root harvesting and fixing items.dat placeholder artifacts.
+    """
+    name = str(item_data.get("name", "Unknown Block")).strip()
+    raw_rarity = int(item_data.get("rarity", 1) or 1)
+    fist_hits = int(item_data.get("hardness_hits", 0) or 0)
+    name_lower = name.lower()
+
+    # Check for Pineapple Mature Roots
+    if "pineapple" in name_lower and "root" in name_lower:
+        xp_per_unit = 6
+        fist_hits = 3
+        pickaxe_hits = 2
+        clean_name = name.replace(" Seed", "").strip()
+        if "cutting" in name_lower:
+            clean_name = "Mature Pineapple Roots"
+        return {
+            "display_name": clean_name,
+            "is_root": True,
+            "unit_plural": "roots",
+            "unit_singular": "root",
+            "action_title": "🍍 Mature Roots to Harvest",
+            "action_header": "Harvest Goal",
+            "yield_label": "+6 XP / mature root",
+            "yield_sub": "Super Pineapple Harvest",
+            "xp_per_unit": xp_per_unit,
+            "rarity_display": "Event Root",
+            "fist_hits": fist_hits,
+            "pickaxe_hits": pickaxe_hits,
+        }
+
+    # Check for Bountiful Mature Roots or Root Cuttings
+    if ("bountiful" in name_lower or "root" in name_lower) and (
+        "mature root" in name_lower or "root cutting" in name_lower or "roots" in name_lower
+    ):
+        xp_per_unit = 80
+        fist_hits = 3
+        pickaxe_hits = 2
+        clean_name = name.replace(" Seed", "").strip()
+        if "root cutting" in name_lower:
+            clean_name = clean_name.replace("Root Cutting", "Mature Roots").strip()
+        elif clean_name.endswith("Roots") and not clean_name.endswith("Mature Roots"):
+            clean_name = clean_name[:-5] + "Mature Roots"
+        return {
+            "display_name": clean_name,
+            "is_root": True,
+            "unit_plural": "roots",
+            "unit_singular": "root",
+            "action_title": "🌾 Mature Roots to Harvest",
+            "action_header": "Harvest Goal",
+            "yield_label": "+80 XP / mature root",
+            "yield_sub": "Level 4/5 Mature Root Harvest",
+            "xp_per_unit": xp_per_unit,
+            "rarity_display": "Bountiful Root",
+            "fist_hits": fist_hits,
+            "pickaxe_hits": pickaxe_hits,
+        }
+
+    # Standard block break
+    if raw_rarity >= 999:
+        rarity = 100
+        rarity_display = "Special (Capped)"
+    else:
+        rarity = max(1, raw_rarity)
+        rarity_display = f"Rarity {rarity}"
+
+    pickaxe_hits = max(1, (fist_hits * 3 + 3) // 4) if fist_hits > 0 else 1
+    xp_per_unit = min(500, max(1, 1 + (rarity // 5)))
+
+    return {
+        "display_name": name,
+        "is_root": False,
+        "unit_plural": "blocks",
+        "unit_singular": "block",
+        "action_title": "📦 Blocks to Break",
+        "action_header": "Target Block",
+        "yield_label": f"+{xp_per_unit} XP / block",
+        "yield_sub": f"Rarity {rarity}",
+        "xp_per_unit": xp_per_unit,
+        "rarity_display": rarity_display,
+        "fist_hits": fist_hits,
+        "pickaxe_hits": pickaxe_hits,
+    }
+
+
 def compute_xp_metrics(
     current_level: int,
     target_level: int,
     current_xp: int,
     item_data: dict[str, Any],
 ) -> dict[str, Any]:
-    """Compute exact, zero-RNG block breaking and XP metrics."""
+    """Compute exact, zero-RNG block breaking or root harvesting metrics."""
     target_level = max(current_level + 1, min(MAX_LEVEL_CAP, target_level))
     total_xp_required = total_xp_between_levels(current_level, target_level)
     remaining_xp = max(0, total_xp_required - current_xp)
 
-    rarity = max(1, int(item_data.get("rarity", 1)))
-    fist_hits = int(item_data.get("hardness_hits", 0))
-    pickaxe_hits = max(1, (fist_hits * 3 + 3) // 4) if fist_hits > 0 else 0
+    mech = resolve_item_mechanics(item_data)
+    xp_per_unit = mech["xp_per_unit"]
+    pickaxe_hits = mech["pickaxe_hits"]
+    fist_hits = mech["fist_hits"]
 
-    xp_per_block = min(500, max(1, 1 + (rarity // 5)))
-    blocks_needed = (remaining_xp + xp_per_block - 1) // xp_per_block if remaining_xp > 0 else 0
-    stacks_200 = (blocks_needed + 199) // 200 if blocks_needed > 0 else 0
-    total_pickaxe_hits = blocks_needed * pickaxe_hits
-    total_fist_hits = blocks_needed * fist_hits
+    units_needed = (remaining_xp + xp_per_unit - 1) // xp_per_unit if remaining_xp > 0 else 0
+    stacks_200 = (units_needed + 199) // 200 if units_needed > 0 else 0
+    total_pickaxe_hits = units_needed * pickaxe_hits
+    total_fist_hits = units_needed * fist_hits
 
-    # Estimate pure breaking hours at 5 punches/sec in continuous breaking / BFG
+    # Estimate action hours at ~5 hits/sec in continuous breaking/harvesting
     break_hours_pickaxe = (total_pickaxe_hits / (5 * 3600)) if total_pickaxe_hits > 0 else 0.0
 
     # Overall progress toward Level 125 cap
@@ -147,13 +234,13 @@ def compute_xp_metrics(
     for ms_lvl, label in [(50, "Mini-You"), (100, "Golden Name"), (125, "Max Cap")]:
         if current_level < ms_lvl and target_level != ms_lvl:
             ms_xp = max(0, total_xp_between_levels(current_level, ms_lvl) - current_xp)
-            ms_blocks = (ms_xp + xp_per_block - 1) // xp_per_block if ms_xp > 0 else 0
-            ms_stacks = (ms_blocks + 199) // 200 if ms_blocks > 0 else 0
+            ms_units = (ms_xp + xp_per_unit - 1) // xp_per_unit if ms_xp > 0 else 0
+            ms_stacks = (ms_units + 199) // 200 if ms_units > 0 else 0
             milestones.append({
                 "level": ms_lvl,
                 "label": label,
                 "xp": ms_xp,
-                "blocks": ms_blocks,
+                "units": ms_units,
                 "stacks": ms_stacks,
             })
 
@@ -165,11 +252,18 @@ def compute_xp_metrics(
         "curr_level_pct": curr_level_pct,
         "total_xp_required": total_xp_required,
         "remaining_xp": remaining_xp,
-        "item_name": item_data.get("name", "Unknown Block"),
+        "item_name": mech["display_name"],
         "item_id": item_data.get("id", 0),
-        "rarity": rarity,
-        "xp_per_block": xp_per_block,
-        "blocks_needed": blocks_needed,
+        "is_root": mech["is_root"],
+        "unit_plural": mech["unit_plural"],
+        "unit_singular": mech["unit_singular"],
+        "action_title": mech["action_title"],
+        "action_header": mech["action_header"],
+        "yield_label": mech["yield_label"],
+        "yield_sub": mech["yield_sub"],
+        "rarity_display": mech["rarity_display"],
+        "xp_per_unit": xp_per_unit,
+        "units_needed": units_needed,
         "stacks_200": stacks_200,
         "fist_hits": fist_hits,
         "pickaxe_hits": pickaxe_hits,
@@ -190,8 +284,9 @@ def build_xp_embed(metrics: dict[str, Any]) -> discord.Embed:
     curr_lvl = metrics["current_level"]
     target_lvl = metrics["target_level"]
     item_name = metrics["item_name"]
-    rarity = metrics["rarity"]
-    xp_per_block = metrics["xp_per_block"]
+    xp_per_unit = metrics["xp_per_unit"]
+    unit_plural = metrics["unit_plural"]
+    unit_singular = metrics["unit_singular"]
     prog_bar = generate_progress_bar(metrics["overall_progress_pct"])
 
     target_badge = "👑 Max Level Cap" if target_lvl == MAX_LEVEL_CAP else f"Level {target_lvl}"
@@ -204,7 +299,7 @@ def build_xp_embed(metrics: dict[str, Any]) -> discord.Embed:
     # Top Overview Section
     desc_lines = [
         f"🎯 **Target Goal:** **Level {target_lvl}** `({target_badge})`",
-        f"🧱 **Target Block:** **{item_name}** • `Rarity {rarity}` (`+{xp_per_block} XP/block`)",
+        f"🧱 **{metrics['action_header']}:** **{item_name}** • `{metrics['rarity_display']}` (`+{xp_per_unit} XP/{unit_singular}`)",
     ]
 
     if metrics["current_xp"] > 0:
@@ -227,23 +322,23 @@ def build_xp_embed(metrics: dict[str, Any]) -> discord.Embed:
         inline=True,
     )
     embed.add_field(
-        name="📦 Blocks to Break",
-        value=f"**`{metrics['blocks_needed']:,}`** blocks\n*({metrics['stacks_200']:,} stacks)*",
+        name=metrics["action_title"],
+        value=f"**`{metrics['units_needed']:,}`** {unit_plural}\n*({metrics['stacks_200']:,} stacks)*",
         inline=True,
     )
     embed.add_field(
-        name="⛏️ Pickaxe Hits",
-        value=f"**`{metrics['total_pickaxe_hits']:,}`** hits\n*({metrics['pickaxe_hits']} hits/block)*",
+        name="⛏️ Pickaxe Hits" if not metrics["is_root"] else "⛏️ Tool / Punch Hits",
+        value=f"**`{metrics['total_pickaxe_hits']:,}`** hits\n*({metrics['pickaxe_hits']} hits/{unit_singular})*",
         inline=True,
     )
     embed.add_field(
-        name="⏱️ Est. Punch Time",
+        name="⏱️ Est. Punch Time" if not metrics["is_root"] else "⏱️ Est. Harvest Time",
         value=f"**`~{metrics['break_hours_pickaxe']:.1f} hours`**\n*(at ~5 hits/sec)*",
         inline=True,
     )
     embed.add_field(
-        name="⚡ Break Yield",
-        value=f"**`+{xp_per_block} XP`** / block\n*(Rarity {rarity})*",
+        name="⚡ Yield / Rate",
+        value=f"**`{metrics['yield_label']}`**\n*({metrics['yield_sub']})*",
         inline=True,
     )
 
@@ -266,7 +361,7 @@ def build_xp_embed(metrics: dict[str, Any]) -> discord.Embed:
         for ms in metrics["milestones"]:
             ms_lines.append(
                 f"• **Level {ms['level']} ({ms['label']}):** "
-                f"**`{ms['blocks']:,}`** blocks `({ms['stacks']:,} stacks)` • `{ms['xp']:,} XP left`"
+                f"**`{ms['units']:,}`** {unit_plural} `({ms['stacks']:,} stacks)` • `{ms['xp']:,} XP left`"
             )
         embed.add_field(
             name="🏆 Milestone Checkpoints",
@@ -407,16 +502,53 @@ class XPCalculatorCog(commands.Cog, name="Level & EXP Calculator"):
         current: str,
     ) -> list[app_commands.Choice[str]]:
         try:
-            items = await self.bot.api.search_items(current or "Laser Grid", limit=15, farmable_only=False)
+            items = await self.bot.api.search_items(current or "Laser Grid", limit=25, farmable_only=False)
             choices: list[app_commands.Choice[str]] = []
+            seen_values: set[str] = set()
+
             for it in items:
-                rarity = int(it.get("rarity", 0) or 0)
-                xp_per_block = min(500, max(1, 1 + (rarity // 5)))
-                name = it.get("name", "")
-                if not name or rarity <= 0:
+                name = str(it.get("name", "")).strip()
+                if not name or name.startswith("null_item"):
                     continue
-                label = f"{name} (Rarity {rarity} • {xp_per_block} XP/block)"[:100]
-                choices.append(app_commands.Choice(name=label, value=name))
+                name_lower = name.lower()
+
+                # Filter out seeds and clothing
+                if it.get("item_type") == 19 or name_lower.endswith(" seed"):
+                    continue
+                if int(it.get("clothing_type", 0) or 0) > 0 or it.get("item_type") in (20, 26, 32):
+                    continue
+                # Filter out intermediate non-mature roots
+                if name_lower.endswith(" roots") and not name_lower.endswith("mature roots"):
+                    continue
+
+                # Check for root mechanics
+                if "pineapple" in name_lower and "root" in name_lower:
+                    clean_val = "Mature Pineapple Roots"
+                    label = f"🍍 {clean_val} (Root Harvest • 6 XP/harvest)"[:100]
+                    val = clean_val
+                elif "bountiful" in name_lower and ("mature root" in name_lower or "root cutting" in name_lower):
+                    clean_val = name.replace("Root Cutting", "Mature Roots").strip()
+                    label = f"🌾 {clean_val} (Root Harvest • 80 XP/harvest)"[:100]
+                    val = clean_val
+                elif "bountiful" in name_lower:
+                    rarity = max(1, int(it.get("rarity", 1) or 1))
+                    xp = min(500, max(1, 1 + (rarity // 5)))
+                    label = f"🧱 {name} (Block Break • {xp} XP/block • Rarity {rarity})"[:100]
+                    val = name
+                else:
+                    rarity = int(it.get("rarity", 0) or 0)
+                    if rarity >= 999 or rarity <= 0:
+                        continue  # Skip dummy 999 non-root items
+                    xp = min(500, max(1, 1 + (rarity // 5)))
+                    label = f"🧱 {name} (Rarity {rarity} • {xp} XP/block)"[:100]
+                    val = name
+
+                if val not in seen_values:
+                    seen_values.add(val)
+                    choices.append(app_commands.Choice(name=label, value=val))
+                    if len(choices) >= 25:
+                        break
+
             return choices
         except Exception:
             return []
