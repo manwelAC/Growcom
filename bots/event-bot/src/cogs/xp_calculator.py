@@ -7,8 +7,14 @@ official leveling formula, the exact number of blocks needed to break, 200-item 
 stacks, pickaxe hits, breaking hours, and milestone comparisons (Level 50 Mini-You,
 Level 100 Golden Name, Level 125 Max Cap).
 
+Supports:
+- Exact in-level progress deduction (e.g. 45000, 45k, 50%)
+- Responsive native Discord layout that never wraps or breaks on mobile/desktop
+- Interactive milestone buttons (Level 50, Level 100, Level 125)
+- Interactive 'Set XP Progress' modal for on-the-fly adjustment
+
 Commands:
-- /xp <current_level> <block> [target_level=125] [current_xp=0]
+- /xp <current_level> <block> [target_level=125] [current_xp="0"]
 - /set_xp_channel [channel] (Admin: lock /xp tool to dedicated channel)
 - /setup_xp_channel (Admin: auto-provision #✨xp-calculator under '🛠️ Growcom Tools')
 """
@@ -51,12 +57,56 @@ def total_xp_between_levels(curr: int, target: int) -> int:
     return sum(xp_for_level_transition(lvl) for lvl in range(curr, target))
 
 
-def generate_progress_bar(pct: float, length: int = 14) -> str:
+def parse_current_xp(raw: str | int | None, current_level: int) -> int:
+    """
+    Parse a player's current XP progress in their current level.
+    Supports:
+    - Raw numbers: '45000' or '45,000'
+    - Shorthand: '45k' or '1.2m'
+    - Percentages: '50%' (resolves to 50% of the current level's bar)
+    - None / empty: defaults to 0
+    """
+    if raw is None:
+        return 0
+    if isinstance(raw, (int, float)):
+        val = int(raw)
+    else:
+        text = str(raw).strip().lower().replace(",", "").replace(" ", "")
+        if not text or text in ("0", "none"):
+            return 0
+        if text.endswith("%"):
+            try:
+                pct = min(99.9, max(0.0, float(text[:-1])))
+                lvl_xp = xp_for_level_transition(current_level)
+                return int((pct / 100.0) * lvl_xp)
+            except ValueError:
+                return 0
+        if text.endswith("k"):
+            try:
+                val = int(float(text[:-1]) * 1_000)
+            except ValueError:
+                return 0
+        elif text.endswith("m"):
+            try:
+                val = int(float(text[:-1]) * 1_000_000)
+            except ValueError:
+                return 0
+        else:
+            try:
+                val = int(text)
+            except ValueError:
+                return 0
+
+    max_possible = xp_for_level_transition(current_level) - 1
+    return max(0, min(max_possible, val))
+
+
+def generate_progress_bar(pct: float, length: int = 12) -> str:
     """Generate a clean Unicode progress bar."""
     clamped = max(0.0, min(100.0, pct))
     filled = int(round((clamped / 100.0) * length))
     empty = length - filled
-    return f"[{'█' * filled}{'░' * empty}] {clamped:.1f}%"
+    return f"[{'█' * filled}{'░' * empty}]"
 
 
 def compute_xp_metrics(
@@ -88,6 +138,10 @@ def compute_xp_metrics(
     xp_achieved = max(0, total_xp_between_levels(1, current_level) + current_xp)
     overall_progress_pct = min(100.0, (xp_achieved / total_1_to_125) * 100) if total_1_to_125 > 0 else 0.0
 
+    # Level progress (progress in current level)
+    curr_level_needed = xp_for_level_transition(current_level)
+    curr_level_pct = min(100.0, (current_xp / curr_level_needed) * 100) if curr_level_needed > 0 else 0.0
+
     # Intermediate milestones
     milestones: list[dict[str, Any]] = []
     for ms_lvl, label in [(50, "Mini-You"), (100, "Golden Name"), (125, "Max Cap")]:
@@ -107,6 +161,8 @@ def compute_xp_metrics(
         "current_level": current_level,
         "target_level": target_level,
         "current_xp": current_xp,
+        "curr_level_needed": curr_level_needed,
+        "curr_level_pct": curr_level_pct,
         "total_xp_required": total_xp_required,
         "remaining_xp": remaining_xp,
         "item_name": item_data.get("name", "Unknown Block"),
@@ -126,7 +182,11 @@ def compute_xp_metrics(
 
 
 def build_xp_embed(metrics: dict[str, Any]) -> discord.Embed:
-    """Build the Argon-style level grind summary embed."""
+    """
+    Build a sleek, responsive Argon-style level grind summary embed.
+    Uses native Discord fields to guarantee 100% responsive rendering with
+    zero broken borders or line-wrapping on any screen or device.
+    """
     curr_lvl = metrics["current_level"]
     target_lvl = metrics["target_level"]
     item_name = metrics["item_name"]
@@ -134,42 +194,83 @@ def build_xp_embed(metrics: dict[str, Any]) -> discord.Embed:
     xp_per_block = metrics["xp_per_block"]
     prog_bar = generate_progress_bar(metrics["overall_progress_pct"])
 
-    target_badge = "👑 Max Level Cap" if target_lvl == 125 else f"Level {target_lvl}"
-
-    # Build ASCII monospace box
-    table_lines = [
-        "┌────────────────────────────────────────────────────────────┐",
-        f"│ ✨ Remaining EXP    : {metrics['remaining_xp']:>14,d} XP                    │",
-        f"│ 📦 Blocks to Break  : {metrics['blocks_needed']:>14,d} blocks                │",
-        f"│ 🎒 Stacks (200)     : {metrics['stacks_200']:>14,d} stacks                │",
-        f"│ ⛏️ Pickaxe Hits     : {metrics['total_pickaxe_hits']:>14,d} hits ({metrics['pickaxe_hits']} hits/block)   │",
-        f"│ ⏱️ Est. Punch Time  : {metrics['break_hours_pickaxe']:>14.1f} hours (~5 hits/sec)    │",
-        "└────────────────────────────────────────────────────────────┘",
-    ]
-    box_str = "\n".join(table_lines)
+    target_badge = "👑 Max Level Cap" if target_lvl == MAX_LEVEL_CAP else f"Level {target_lvl}"
 
     embed = discord.Embed(
         title="⚡ Growcom Level & EXP Grind Calculator",
         color=0x00E676,  # Argon Emerald Mint
     )
 
-    embed.description = (
-        f"🎯 **Target Goal:** **Level {target_lvl}** `({target_badge})`\n"
-        f"📊 **Current Progress:** **Level {curr_lvl}** • `{prog_bar}`\n"
-        f"🧱 **Target Block:** **{item_name}** `(Rarity {rarity} • {xp_per_block} XP/block)`\n\n"
-        f"```text\n{box_str}\n```"
+    # Top Overview Section
+    desc_lines = [
+        f"🎯 **Target Goal:** **Level {target_lvl}** `({target_badge})`",
+        f"🧱 **Target Block:** **{item_name}** • `Rarity {rarity}` (`+{xp_per_block} XP/block`)",
+    ]
+
+    if metrics["current_xp"] > 0:
+        desc_lines.append(
+            f"📊 **Progress:** **Level {curr_lvl}** `(+{metrics['current_xp']:,} XP)` • `{metrics['overall_progress_pct']:.1f}%`"
+        )
+    else:
+        desc_lines.append(
+            f"📊 **Progress:** **Level {curr_lvl}** • `{metrics['overall_progress_pct']:.1f}%`"
+        )
+
+    desc_lines.append(f"`{prog_bar}`")
+    desc_lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    embed.description = "\n".join(desc_lines)
+
+    # Core Stat Cards (Inline fields render cleanly across 3 columns on desktop, 1 on mobile)
+    embed.add_field(
+        name="✨ Remaining EXP",
+        value=f"**`{metrics['remaining_xp']:,} XP`**",
+        inline=True,
+    )
+    embed.add_field(
+        name="📦 Blocks to Break",
+        value=f"**`{metrics['blocks_needed']:,}`** blocks\n*({metrics['stacks_200']:,} stacks)*",
+        inline=True,
+    )
+    embed.add_field(
+        name="⛏️ Pickaxe Hits",
+        value=f"**`{metrics['total_pickaxe_hits']:,}`** hits\n*({metrics['pickaxe_hits']} hits/block)*",
+        inline=True,
+    )
+    embed.add_field(
+        name="⏱️ Est. Punch Time",
+        value=f"**`~{metrics['break_hours_pickaxe']:.1f} hours`**\n*(at ~5 hits/sec)*",
+        inline=True,
+    )
+    embed.add_field(
+        name="⚡ Break Yield",
+        value=f"**`+{xp_per_block} XP`** / block\n*(Rarity {rarity})*",
+        inline=True,
     )
 
+    if metrics["current_xp"] > 0:
+        embed.add_field(
+            name="🌟 Current Level Progress",
+            value=f"**`{metrics['current_xp']:,} / {metrics['curr_level_needed']:,} XP`**\n*({metrics['curr_level_pct']:.1f}% to Lvl {curr_lvl + 1})*",
+            inline=True,
+        )
+    else:
+        embed.add_field(
+            name="🎒 Inventory Stacks",
+            value=f"**`{metrics['stacks_200']:,}`** full stacks\n*(200 items each)*",
+            inline=True,
+        )
+
+    # Milestone Checkpoints
     if metrics["milestones"]:
-        ms_text = []
+        ms_lines = []
         for ms in metrics["milestones"]:
-            ms_text.append(
-                f"• **To Level {ms['level']} ({ms['label']}):** "
-                f"`{ms['blocks']:,d}` blocks `({ms['stacks']:,d} stacks)` • `{ms['xp']:,d} XP`"
+            ms_lines.append(
+                f"• **Level {ms['level']} ({ms['label']}):** "
+                f"**`{ms['blocks']:,}`** blocks `({ms['stacks']:,} stacks)` • `{ms['xp']:,} XP left`"
             )
         embed.add_field(
             name="🏆 Milestone Checkpoints",
-            value="\n".join(ms_text),
+            value="\n".join(ms_lines),
             inline=False,
         )
 
@@ -177,8 +278,45 @@ def build_xp_embed(metrics: dict[str, Any]) -> discord.Embed:
     return embed
 
 
+class SetCurrentXPModal(discord.ui.Modal):
+    """Interactive modal allowing the user to update their in-level XP progress on the fly."""
+
+    def __init__(self, view: XPCalculatorView) -> None:
+        super().__init__(title=f"Set Level {view.current_level} Progress")
+        self.view_ref = view
+        lvl_needed = xp_for_level_transition(view.current_level)
+        self.xp_input = discord.ui.TextInput(
+            label=f"Current XP in Lvl {view.current_level} (max {lvl_needed:,} XP)",
+            placeholder="e.g. 45000, 45k, or 50%",
+            required=True,
+            max_length=20,
+            default=str(view.current_xp) if view.current_xp > 0 else "",
+        )
+        self.add_item(self.xp_input)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        if interaction.user.id != self.view_ref.author_id:
+            await interaction.response.send_message(
+                "❌ This calculator session belongs to another user. Use **`/xp`** to calculate your own!",
+                ephemeral=True,
+            )
+            return
+
+        parsed = parse_current_xp(self.xp_input.value, self.view_ref.current_level)
+        self.view_ref.current_xp = parsed
+        self.view_ref._sync_buttons()
+        metrics = compute_xp_metrics(
+            self.view_ref.current_level,
+            self.view_ref.target_level,
+            self.view_ref.current_xp,
+            self.view_ref.item_data,
+        )
+        embed = build_xp_embed(metrics)
+        await interaction.response.edit_message(embed=embed, view=self.view_ref)
+
+
 class XPCalculatorView(discord.ui.View):
-    """Interactive Argon control view with milestone jump buttons."""
+    """Interactive Argon control view with milestone jump buttons and Set XP Progress modal."""
 
     def __init__(
         self,
@@ -215,6 +353,25 @@ class XPCalculatorView(discord.ui.View):
                 )
                 btn.callback = self._make_milestone_callback(lvl)
                 self.add_item(btn)
+
+        # Set XP Progress modal button
+        edit_btn = discord.ui.Button(
+            label="Set XP Progress",
+            emoji="✏️",
+            style=discord.ButtonStyle.secondary,
+            custom_id="xp_set_progress",
+        )
+        edit_btn.callback = self._edit_progress_callback
+        self.add_item(edit_btn)
+
+    async def _edit_progress_callback(self, interaction: discord.Interaction) -> None:
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message(
+                "❌ This calculator session belongs to another user. Use **`/xp`** to calculate your own!",
+                ephemeral=True,
+            )
+            return
+        await interaction.response.send_modal(SetCurrentXPModal(self))
 
     def _make_milestone_callback(self, new_target: int):
         async def callback(interaction: discord.Interaction) -> None:
@@ -332,9 +489,10 @@ class XPCalculatorCog(commands.Cog, name="Level & EXP Calculator"):
                     "Calculate the **100% exact** remaining XP and number of blocks you need to break "
                     "to reach **Level 125** (or any intermediate milestone like Level 50 or 100).\n\n"
                     "**Available Commands:**\n"
-                    "• **`/xp current_level:62 block:Laser Grid`** — Calculate blocks to Level 125\n"
-                    "• **`/xp current_level:40 block:Chandelier target_level:50`** — Custom target level\n"
-                    "• **`/xp current_level:85 block:Pepper Tree current_xp:50000`** — Include current level XP progress\n\n"
+                    "• **`/xp current_level:60 block:Laser Grid`** — Calculate blocks to Level 125\n"
+                    "• **`/xp current_level:60 block:Laser Grid current_xp:45k`** — Deduct in-level XP progress\n"
+                    "• **`/xp current_level:60 block:Laser Grid current_xp:50%`** — Deduct percentage progress\n"
+                    "• **`/xp current_level:40 block:Chandelier target_level:50`** — Custom target level\n\n"
                     "*(Powered by Growtopia's official $50 \\times (L^2 + 2)$ formula and items.dat v27)*"
                 ),
                 color=0x00E676,
@@ -406,7 +564,8 @@ class XPCalculatorCog(commands.Cog, name="Level & EXP Calculator"):
                 "Use **`/xp`** in this channel to calculate exact block requirements to Level 125!\n\n"
                 "• **100% Exact Math:** Based on Growtopia's $50 \\times (L^2 + 2)$ formula\n"
                 "• **Block Requirements:** Calculates exact blocks, 200-item stacks, and pickaxe punches\n"
-                "• **Milestones:** Quick progress comparison to Level 50, 100, and 125"
+                "• **Milestones:** Quick progress comparison to Level 50, 100, and 125\n"
+                "• **Live Progress Adjustment:** Supports exact XP, k-shorthand, or percentages"
             ),
             color=0x00E676,
         )
@@ -426,7 +585,7 @@ class XPCalculatorCog(commands.Cog, name="Level & EXP Calculator"):
         current_level="Your current Growtopia level (1–124)",
         block="The block you plan to break (e.g. Laser Grid, Chandelier, Pepper Tree, Dirt)",
         target_level="Target level to reach (default: 125 - Max Cap)",
-        current_xp="Optional XP points already earned in your current level (default: 0)",
+        current_xp="Optional XP progress in current level (e.g. 45000, 45k, or 50%)",
     )
     @app_commands.autocomplete(block=block_autocomplete)
     async def xp_command(
@@ -435,7 +594,7 @@ class XPCalculatorCog(commands.Cog, name="Level & EXP Calculator"):
         current_level: int,
         block: str,
         target_level: int = MAX_LEVEL_CAP,
-        current_xp: int = 0,
+        current_xp: str | None = None,
     ) -> None:
         state = load_state()
         allowed_channel_id = state.get("xp_channel_id")
@@ -467,8 +626,7 @@ class XPCalculatorCog(commands.Cog, name="Level & EXP Calculator"):
             )
             return
 
-        if current_xp < 0:
-            current_xp = 0
+        parsed_xp = parse_current_xp(current_xp, current_level)
 
         await interaction.response.defer()
 
@@ -490,7 +648,7 @@ class XPCalculatorCog(commands.Cog, name="Level & EXP Calculator"):
         metrics = compute_xp_metrics(
             current_level=current_level,
             target_level=target_level,
-            current_xp=current_xp,
+            current_xp=parsed_xp,
             item_data=item_data,
         )
 
@@ -500,7 +658,7 @@ class XPCalculatorCog(commands.Cog, name="Level & EXP Calculator"):
             author_id=interaction.user.id,
             current_level=current_level,
             target_level=target_level,
-            current_xp=current_xp,
+            current_xp=parsed_xp,
             item_data=item_data,
         )
 
