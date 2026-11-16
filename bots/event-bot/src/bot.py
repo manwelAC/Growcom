@@ -38,6 +38,7 @@ logging.basicConfig(
 USER_COOLDOWN_SECONDS = int(os.getenv("COMMAND_COOLDOWN_SECONDS", "120"))
 COMMAND_COOLDOWN_OVERRIDES: dict[str, int] = {
     "gacha": 60,  # 1-minute cooldown for the Gacha Simulator
+    "trivia": 10,  # 10s cooldown for Trivia desk
 }
 
 COMMAND_CHANNEL_KEYS: dict[str, str] = {
@@ -58,6 +59,7 @@ COMMAND_CHANNEL_KEYS: dict[str, str] = {
     "suggest": "suggestions_channel_id",
     "gacha": "gacha_channel_id",
     "xp": "xp_channel_id",
+    "trivia": "trivia_channel_id",
 }
 
 
