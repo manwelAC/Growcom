@@ -26,6 +26,7 @@ from bots.shared.api_client import CentralDataClient  # noqa: E402
 from utils.helpers import (  # noqa: E402
     load_state,
     logger,
+    save_state,
 )
 
 load_dotenv(PROJECT_ROOT / ".env")
@@ -38,7 +39,6 @@ logging.basicConfig(
 USER_COOLDOWN_SECONDS = int(os.getenv("COMMAND_COOLDOWN_SECONDS", "120"))
 COMMAND_COOLDOWN_OVERRIDES: dict[str, int] = {
     "gacha": 60,  # 1-minute cooldown for the Gacha Simulator
-    "trivia": 10,  # 10s cooldown for Trivia desk
     "find-items": 15,  # 15s cooldown for Find Items by Buff
 }
 
@@ -60,7 +60,6 @@ COMMAND_CHANNEL_KEYS: dict[str, str] = {
     "suggest": "suggestions_channel_id",
     "gacha": "gacha_channel_id",
     "xp": "xp_channel_id",
-    "trivia": "trivia_channel_id",
     "find-items": "find_items_channel_id",
 }
 
@@ -162,7 +161,45 @@ bot = EventBot(api_client=CentralDataClient(api_url, api_key), dev_guild_id=dev_
 @bot.event
 async def on_ready() -> None:
     logger.info("Event Bot connected as %s", bot.user)
+    state = load_state()
+    old_trivia_ids = {
+        int(state[k])
+        for k in ("trivia_channel_id", "trivia_leaderboard_channel_id")
+        if state.get(k) and str(state.get(k)).isdigit()
+    }
+    state_changed = False
+    for k in (
+        "trivia_channel_id",
+        "trivia_leaderboard_channel_id",
+        "trivia_desk_message_id",
+        "trivia_leaderboard_message_id",
+    ):
+        if k in state:
+            state.pop(k, None)
+            state_changed = True
+    if state_changed:
+        save_state(state)
+
     for guild in bot.guilds:
+        # Remove retired Daily Trivia & Trivia Leaderboard channels if present
+        for ch in list(guild.text_channels):
+            topic_l = (ch.topic or "").lower()
+            name_l = ch.name.lower()
+            if (
+                ch.id in old_trivia_ids
+                or "[growcom:trivia_play]" in topic_l
+                or "[growcom:trivia_lb]" in topic_l
+                or "growcom daily gt item trivia" in topic_l
+                or "growcom monthly trivia championship" in topic_l
+                or "daily-trivia" in name_l
+                or "trivia-leaderboard" in name_l
+            ):
+                try:
+                    await ch.delete(reason="Removed Daily Trivia & Trivia Leaderboards per admin request")
+                    logger.info("Deleted retired trivia channel #%s (%s) in %s", ch.name, ch.id, guild.name)
+                except Exception as exc:
+                    logger.warning("Could not delete retired trivia channel %s: %s", ch.id, exc)
+
         try:
             bot.tree.copy_global_to(guild=guild)
             await bot.tree.sync(guild=guild)
