@@ -39,6 +39,7 @@ USER_COOLDOWN_SECONDS = int(os.getenv("COMMAND_COOLDOWN_SECONDS", "120"))
 COMMAND_COOLDOWN_OVERRIDES: dict[str, int] = {
     "gacha": 60,  # 1-minute cooldown for the Gacha Simulator
     "trivia": 10,  # 10s cooldown for Trivia desk
+    "find-items": 15,  # 15s cooldown for Find Items by Buff
 }
 
 COMMAND_CHANNEL_KEYS: dict[str, str] = {
@@ -60,6 +61,7 @@ COMMAND_CHANNEL_KEYS: dict[str, str] = {
     "gacha": "gacha_channel_id",
     "xp": "xp_channel_id",
     "trivia": "trivia_channel_id",
+    "find-items": "find_items_channel_id",
 }
 
 
@@ -100,7 +102,12 @@ class GrowcomCommandTree(app_commands.CommandTree):
         expires_at = self._user_cooldowns.get(bucket_key, 0.0)
         if now < expires_at:
             exp_ts = int(expires_at)
-            mins_label = "1-minute" if cooldown_sec == 60 else f"{cooldown_sec // 60}-minute"
+            if cooldown_sec < 60:
+                mins_label = f"{cooldown_sec}-second"
+            elif cooldown_sec == 60:
+                mins_label = "1-minute"
+            else:
+                mins_label = f"{cooldown_sec // 60}-minute"
             await interaction.response.send_message(
                 f"⏳ **Cooldown Active!** You can use **`/{cmd_name}`** again <t:{exp_ts}:R> (at <t:{exp_ts}:T>).\n"
                 f"*(This command has a {mins_label} rate limit per user to prevent spam!)*",

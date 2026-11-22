@@ -14,7 +14,7 @@
 
 ---
 
-## ✨ Complete Suite of 14 Categorized Growtopia Tools
+## ✨ Complete Suite of 15 Categorized Growtopia Tools
 
 Every tool in **Growcom Events by Manwel** lives in its own isolated module inside [`bots/event-bot/src/cogs/`](bots/event-bot/src/cogs/), features a **2-minute per-user anti-spam cooldown**, and can be locked to its own dedicated Discord channel by Server Admins:
 
@@ -33,7 +33,8 @@ Every tool in **Growcom Events by Manwel** lives in its own isolated module insi
 | **11** | 🚀 **Star Captain Guide** (`cogs/star_captain.py`) | `/startopia` | `/set_startrek_channel` | Complete **Startopia 2.0 Starship Bridge Station & Sector** cheat-sheet (`/startopia`). |
 | **12** | 🌍 **World Render & 403 Bypass** (`cogs/world_render.py`) | `/render` | `/set_render_channel` • `/setup_render_channel` | Bypasses Growtopia's **403 Forbidden** web error by pulling renders directly from Amazon S3, embeds high-res maps in `#🌍world-render` (under **🛠️ Growcom Tools**), and auto-fixes broken links in chat. |
 | **13** | ✨ **Level & EXP Grind Calculator** (`cogs/xp_calculator.py`) | `/xp` | `/set_xp_channel` • `/setup_xp_channel` | Deterministic, zero-RNG calculator for remaining XP and blocks to break to reach **Level 125** (or custom targets), 200-item inventory stacks, pickaxe hits, and milestone checkpoints. |
-| **14** | 🎯 **Daily Growtopia Trivia & 10 DL Championship** (`cogs/trivia.py`) | `/trivia` | `/set_trivia_channel` • `/setup_trivia_channels` | Anti-wiki speedrun trivia with multi-constraint cryptic riddles, strict 20s timers, persistent play desk in `#🎯daily-trivia`, live monthly leaderboard in `#🏆trivia-leaderboards`, and 10 Diamond Locks monthly grand prize! |
+| **14** | 🎯 **Daily Growtopia Trivia & 10 DL Championship** (`cogs/trivia.py`) | `/trivia` | `/set_trivia_channel` • `/setup_trivia_channels` | Anti-wiki speedrun trivia with multi-constraint cryptic riddles, strict 45s timers, persistent play desk in `#🎯daily-trivia`, live monthly leaderboard in `#🏆trivia-leaderboards`, and 10 Diamond Locks monthly grand prize! |
+| **15** | 🔍 **2026 Item Buff & Multi-Mod Finder** (`cogs/find_items.py`) | `/find-items` | `/set_find_items_channel` • `/setup_find_items_channel` | Search across **1,646+ modded 2026 items** and **126+ Buff Categories** (`Double Jump`, `Speedy`, `Punch Damage`, `Build Range`, `Extra Blocks`, etc.), see **all additional buffs** on multi-mod items, combine 2 buffs, and filter by **Clothing Slot**. |
 
 ---
 
