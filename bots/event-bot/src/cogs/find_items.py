@@ -1,21 +1,23 @@
 """
-Category 15: Find Items by Buff & Multi-Mod Explorer (cogs/find_items.py)
+Category 14: Find Items by Buff & Multi-Mod Explorer (cogs/find_items.py)
 
-Allows players to search across all 2026 Growtopia items (items.dat v27 + 134+ Official Wiki Mod Categories)
+Allows players to search across all 2026 Growtopia items (items.dat v27 + 126+ Official Wiki Mod Categories)
 by any buff/effect (e.g. Double Jump, Speedy, Punch Damage, Build Range, Punch Range, Extra Blocks,
-Extra Gems, XP Buff, Tree Harvesting, Slow-Fall, Charging Geiger Counter, etc.).
+Extra Gems, XP Buff, Tree Harvesting, Slow Fall, Charging Geiger Counter, or umbrella groups like
+All Punch Buffs).
 
 Features:
 - Full 2026 dataset (items.dat v27 through November 2026 + all Growtopia Wiki Mod categories)
 - Clearly displays ALL additional buffs on items that possess multiple effects
-- Supports searching by a single buff OR combining 2 buffs (primary + second_buff)
+- Supports searching by a single buff, an umbrella group (e.g. All Punch Buffs), OR combining 2 buffs
+- Renders the item list inside embed.description (4,096-char limit) so it never hits Discord's 1,024-char field limit
 - Interactive Clothing Slot filter dropdown (Hat, Hair, Face, Chest, Shirt, Pants, Feet, Back, Hand, Artifact)
 - Interactive "✨ Multi-Buff Items Only" toggle button & clean pagination
 - Immediate 50ms interaction deferral so buttons/dropdowns never time out
 - Persistent [growcom:find_items] topic signature so renaming #🔍find-items never recreates the channel
 
 Commands:
-- /find-items <buff> [second_buff] [slot]
+- /find-items <buff> [second_buff] [slot] [multi_buff_only]
 - /set_find_items_channel [channel] (Admin: lock /find-items tool to dedicated channel)
 - /setup_find_items_channel (Admin: auto-provision #🔍find-items under '🛠️ Growcom Tools')
 """
@@ -24,7 +26,6 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import discord
@@ -57,7 +58,7 @@ SLOT_EMOJIS: dict[str, str] = {
     "Shirt": "👕",
     "Pants": "👖",
     "Feet": "👟",
-    "Back": "🪽",
+    "Back": "🦋",
     "Hand": "✋",
     "Artifact": "🔮",
     "Consumable": "🧪",
@@ -66,7 +67,12 @@ SLOT_EMOJIS: dict[str, str] = {
 }
 
 BUFF_EMOJIS: dict[str, str] = {
-    "Double Jump": "🪽",
+    "All Punch Buffs": "🥊",
+    "All Jump Buffs": "🚀",
+    "All Farming Buffs": "🌾",
+    "All Range Buffs": "🎯",
+    "All Speed Buffs": "⚡",
+    "Double Jump": "🦋",
     "High Jump": "🚀",
     "Low Jump": "🪶",
     "Speedy": "⚡",
@@ -100,53 +106,82 @@ BUFF_EMOJIS: dict[str, str] = {
     "Fists O' Fury": "👊",
 }
 
+# Umbrella multi-category groups so players can search e.g. "All Punch Buffs" at once
+UMBRELLA_BUFF_GROUPS: dict[str, dict[str, Any]] = {
+    "All Punch Buffs": {
+        "description": "All items that grant any Punch buff (Punch Damage, Punch Range, Punch Power, Punch Pull, or Fists O' Fury).",
+        "sub_buffs": ["Punch Damage", "Punch Range", "Punch Power", "Punch Pull", "Fists O' Fury"],
+    },
+    "All Jump Buffs": {
+        "description": "All items that grant any Jumping or Gliding buff (Double Jump, High Jump, Low Jump, Slow Fall).",
+        "sub_buffs": ["Double Jump", "High Jump", "Low Jump", "Slow Fall"],
+    },
+    "All Farming Buffs": {
+        "description": "All items that boost Farming, Harvesting, Gems, Blocks, or XP (Extra Blocks, Extra Gems, Tree Harvesting, XP Buff, Lucky!).",
+        "sub_buffs": ["Extra Blocks", "Extra Gems", "Tree Harvesting", "XP Buff", "Lucky!"],
+    },
+    "All Range Buffs": {
+        "description": "All items that extend Build Range or Punch Range.",
+        "sub_buffs": ["Build Range", "Punch Range", "Long Range"],
+    },
+    "All Speed Buffs": {
+        "description": "All items that increase movement or swimming speed (Speedy, Speedy in Water, Float on Water).",
+        "sub_buffs": ["Speedy", "Speedy in Water", "Float on Water"],
+    },
+}
+
 POPULAR_BUFFS_ORDER: list[str] = [
-    "Double Jump",
-    "Punch Range",
+    "All Punch Buffs",
     "Punch Damage",
+    "Punch Range",
+    "Punch Power",
+    "Punch Pull",
+    "Double Jump",
     "Speedy",
     "Build Range",
-    "High Jump",
-    "Slow Fall",
-    "Light Source",
-    "Punch Power",
     "Extra Blocks",
     "Extra Gems",
     "XP Buff",
     "Tree Harvesting",
-    "Skin Color",
+    "High Jump",
+    "Slow Fall",
+    "Light Source",
+    "All Farming Buffs",
+    "All Jump Buffs",
+    "All Range Buffs",
+    "All Speed Buffs",
     "Fireproof",
     "Float on Water",
     "Speedy in Water",
     "Damage Reduction",
-    "Punch Pull",
     "Wall Climbing",
     "Lucky!",
-    "Night Vision",
-    "Knock Back Reduction",
-    "Ghost Immunity",
-    "Charging Geiger Counter",
 ]
 
 BUFF_SYNONYMS: dict[str, list[str]] = {
-    "pickaxe": ["Punch Damage"],
+    "punch": ["All Punch Buffs", "Punch Damage", "Punch Range", "Punch Power", "Punch Pull", "Fists O' Fury"],
+    "all punch": ["All Punch Buffs", "Punch Damage", "Punch Range", "Punch Power", "Punch Pull"],
+    "pickaxe": ["Punch Damage", "All Punch Buffs"],
     "enhanced digging": ["Punch Damage"],
     "digging": ["Punch Damage"],
-    "break": ["Punch Damage", "Extra Blocks"],
-    "fast": ["Speedy", "Speedy in Water", "Punch Damage"],
-    "run": ["Speedy"],
-    "walk": ["Speedy"],
+    "break": ["Punch Damage", "Extra Blocks", "All Punch Buffs"],
+    "fast": ["Speedy", "All Speed Buffs", "Speedy in Water", "Punch Damage"],
+    "speed": ["Speedy", "All Speed Buffs", "Speedy in Water"],
+    "run": ["Speedy", "All Speed Buffs"],
+    "walk": ["Speedy", "All Speed Buffs"],
     "swim": ["Speedy in Water", "Float on Water"],
-    "reach": ["Build Range", "Punch Range", "Long Range"],
+    "range": ["All Range Buffs", "Build Range", "Punch Range", "Long Range"],
+    "reach": ["All Range Buffs", "Build Range", "Punch Range", "Long Range"],
     "rayman": ["Punch Range", "Punch Damage", "Extra Blocks"],
     "magplant": ["Build Range", "Punch Range"],
-    "harvester": ["Tree Harvesting", "Extra Blocks"],
-    "farm": ["Extra Blocks", "Extra Gems", "Tree Harvesting", "XP Buff", "Lucky!"],
-    "gems": ["Extra Gems", "Lucky!"],
+    "harvester": ["Tree Harvesting", "Extra Blocks", "All Farming Buffs"],
+    "farm": ["All Farming Buffs", "Extra Blocks", "Extra Gems", "Tree Harvesting", "XP Buff", "Lucky!"],
+    "gems": ["Extra Gems", "Lucky!", "All Farming Buffs"],
     "blocks": ["Extra Blocks", "Build Range", "Punch Damage"],
-    "xp": ["XP Buff"],
+    "xp": ["XP Buff", "All Farming Buffs"],
     "level": ["XP Buff"],
     "exp": ["XP Buff"],
+    "jump": ["All Jump Buffs", "Double Jump", "High Jump", "Low Jump", "Slow Fall"],
     "slow-fall": ["Slow Fall", "Slow-Fall: Ear Flap"],
     "slowfall": ["Slow Fall", "Slow-Fall: Ear Flap"],
     "glide": ["Slow Fall", "Floating!"],
@@ -157,7 +192,7 @@ BUFF_SYNONYMS: dict[str, list[str]] = {
     "glow": ["Light Source", "Night Vision"],
     "dark": ["Light Source", "Night Vision"],
     "clover": ["Lucky!", "Extra Gems"],
-    "pull": ["Punch Pull"],
+    "pull": ["Punch Pull", "All Punch Buffs"],
     "knockback": ["Punch Power", "Knock Back Reduction"],
     "ancestral": ["Extra Blocks", "Extra Gems", "XP Buff", "Build Range"],
 }
@@ -167,14 +202,32 @@ _BUFF_DB_MTIME: float = 0.0
 
 
 def load_buff_db() -> dict[str, Any]:
-    """Load and cache the 2026 item buffs database with automatic mtime hot-reload."""
+    """Load and cache the 2026 item buffs database with automatic mtime hot-reload and umbrella groups."""
     global _BUFF_DB_CACHE, _BUFF_DB_MTIME
     if BUFFS_DATA_FILE.exists():
         mtime = BUFFS_DATA_FILE.stat().st_mtime
         if _BUFF_DB_CACHE is not None and mtime == _BUFF_DB_MTIME:
             return _BUFF_DB_CACHE
         try:
-            _BUFF_DB_CACHE = json.loads(BUFFS_DATA_FILE.read_text(encoding="utf-8"))
+            data = json.loads(BUFFS_DATA_FILE.read_text(encoding="utf-8"))
+            buffs = data.setdefault("buffs", {})
+            buff_to_items = data.setdefault("buff_to_items", {})
+
+            # Inject Umbrella Buff Groups (e.g. "All Punch Buffs") dynamically
+            for u_name, u_info in UMBRELLA_BUFF_GROUPS.items():
+                combined_set: set[str] = set()
+                for sb in u_info["sub_buffs"]:
+                    for item_name in buff_to_items.get(sb, []):
+                        combined_set.add(item_name)
+                if combined_set:
+                    buff_to_items[u_name] = sorted(combined_set)
+                    buffs[u_name] = {
+                        "name": u_name,
+                        "description": u_info["description"],
+                        "item_count": len(combined_set),
+                    }
+
+            _BUFF_DB_CACHE = data
             _BUFF_DB_MTIME = mtime
             return _BUFF_DB_CACHE
         except Exception as exc:
@@ -196,17 +249,25 @@ def resolve_buff_name(query: str, db: dict[str, Any]) -> str | None:
         if b_name.lower() == q_lower:
             return b_name
 
-    # Check synonyms
+    # Exact synonym key match first (e.g. "punch" -> "All Punch Buffs")
+    if q_lower in BUFF_SYNONYMS:
+        for t in BUFF_SYNONYMS[q_lower]:
+            if t in buffs:
+                return t
+
+    # Prefix match on buff names
+    for b_name in buffs:
+        if b_name.lower().startswith(q_lower):
+            return b_name
+
+    # Substring synonym match
     for syn_key, targets in BUFF_SYNONYMS.items():
         if syn_key in q_lower:
             for t in targets:
                 if t in buffs:
                     return t
 
-    # Prefix or substring match
-    for b_name in buffs:
-        if b_name.lower().startswith(q_lower):
-            return b_name
+    # Substring match on buff names
     for b_name in buffs:
         if q_lower in b_name.lower():
             return b_name
@@ -222,7 +283,7 @@ def filter_matching_items(
 ) -> list[dict[str, Any]]:
     """
     Return all 2026 items matching primary_buff (and optional second_buff, slot_filter, multi_buff_only),
-    sorted with multi-buff items and newest 2026 items highlighted cleanly.
+    sorted with multi-buff items and known items.dat IDs first.
     """
     buff_to_items: dict[str, list[str]] = db.get("buff_to_items", {})
     all_items: dict[str, dict[str, Any]] = db.get("items", {})
@@ -246,7 +307,6 @@ def filter_matching_items(
             continue
         results.append(item)
 
-    # Sort: items with more buffs first, then known items.dat ID, then alphabetical
     results.sort(
         key=lambda x: (
             -len(x.get("buffs", [])),
@@ -266,7 +326,11 @@ def build_find_items_embed(
     page: int,
     matched_items: list[dict[str, Any]],
 ) -> discord.Embed:
-    """Build a responsive, zero-wrap Argon UI embed displaying matching items and all their additional buffs."""
+    """
+    Build a responsive, zero-wrap Argon UI embed.
+    Places the item list inside embed.description (which supports 4,096 characters)
+    so it NEVER overflows Discord's 1,024-character embed field limit!
+    """
     buffs_meta = db.get("buffs", {})
     p_info = buffs_meta.get(primary_buff, {})
     p_emoji = BUFF_EMOJIS.get(primary_buff, "✨")
@@ -285,42 +349,33 @@ def build_find_items_embed(
     page_slice = matched_items[start_idx : start_idx + ITEMS_PER_PAGE]
 
     slot_badge = "All Slots" if slot_filter == "ALL" else f"{SLOT_EMOJIS.get(slot_filter, '👚')} {slot_filter} Only"
-    multi_badge = "✨ Multi-Buff Items Only" if multi_buff_only else "All Matching Items"
-
-    # Count how many items in the current result set have 2+ buffs
+    multi_badge = "✨ Multi-Buff Only" if multi_buff_only else "All Items"
     multi_count = sum(1 for it in matched_items if len(it.get("buffs", [])) >= 2)
 
-    header_lines = [
+    desc_blocks: list[str] = [
         f"💡 **Buff Effect:** *{p_desc}*",
     ]
     if second_buff and second_buff != primary_buff:
         s_desc = buffs_meta.get(second_buff, {}).get("description", "")
         if s_desc:
-            header_lines.append(f"💡 **2nd Buff ({second_buff}):** *{s_desc}*")
+            desc_blocks.append(f"💡 **2nd Buff ({second_buff}):** *{s_desc}*")
 
-    header_lines.append(
-        f"📊 **Found:** **`{total_items:,}` Items** (`{multi_count}` with Multiple Buffs) • "
-        f"**Slot:** `{slot_badge}` • **Mode:** `{multi_badge}`"
-    )
-
-    embed = discord.Embed(
-        title=title,
-        description="\n".join(header_lines),
-        color=0x00E676 if total_items > 0 else 0xFF5252,
+    desc_blocks.append(
+        f"📊 **Found:** **`{total_items:,}` Items** (`{multi_count:,}` Multi-Buff) • "
+        f"**Slot:** `{slot_badge}` • **Mode:** `{multi_badge}`\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     )
 
     if not page_slice:
-        embed.add_field(
-            name="⚠️ No Matching Items Found for This Filter",
-            value=(
-                "No items matched this exact combination of buffs and clothing slot.\n"
-                "👉 Try switching the **Clothing Slot dropdown** below to **`🌟 All Clothing Slots`** "
-                "or toggling off **`✨ Multi-Buff Only`**!"
-            ),
-            inline=False,
+        desc_blocks.append(
+            "⚠️ **No Matching Items Found for This Filter**\n"
+            "Try switching the **Clothing Slot dropdown** below to **`🌟 All Clothing Slots`** "
+            "or toggling off **`✨ Multi-Buff Only`**!"
         )
     else:
-        searched_set = {primary_buff}
+        is_umbrella = primary_buff in UMBRELLA_BUFF_GROUPS
+        umbrella_subs = set(UMBRELLA_BUFF_GROUPS.get(primary_buff, {}).get("sub_buffs", []))
+        searched_set = set(umbrella_subs) if is_umbrella else {primary_buff}
         if second_buff:
             searched_set.add(second_buff)
 
@@ -331,38 +386,54 @@ def build_find_items_embed(
             slot = item.get("slot", "Clothing")
             s_emoji = SLOT_EMOJIS.get(slot, "👚")
             all_buffs: list[str] = item.get("buffs", [])
-            extra_buffs = [b for b in all_buffs if b not in searched_set]
 
             id_tag = f" • `ID #{item_id}`" if item_id > 0 else ""
-            if extra_buffs:
-                formatted_extras = " • ".join(f"`+{b}`" for b in extra_buffs)
-                buff_line = f"   ╰ ✨ **Additional Buffs ({len(extra_buffs)}):** {formatted_extras}"
+
+            if is_umbrella:
+                matched_subs = [b for b in all_buffs if b in umbrella_subs]
+                extra_buffs = [b for b in all_buffs if b not in umbrella_subs]
+                m_str = " • ".join(f"`{b}`" for b in matched_subs) if matched_subs else f"`{primary_buff}`"
+                if extra_buffs:
+                    e_str = " • ".join(f"`+{b}`" for b in extra_buffs)
+                    buff_line = f"   ╰ 🥊 **Matched:** {m_str} • ✨ **Also Grants:** {e_str}"
+                else:
+                    buff_line = f"   ╰ 🥊 **Grants:** {m_str}"
             else:
-                buff_line = f"   ╰ 🔹 *Single Buff:* Grants `{primary_buff}`"
+                extra_buffs = [b for b in all_buffs if b not in searched_set]
+                if extra_buffs:
+                    formatted_extras = " • ".join(f"`+{b}`" for b in extra_buffs)
+                    buff_line = f"   ╰ ✨ **Additional Buffs ({len(extra_buffs)}):** {formatted_extras}"
+                else:
+                    buff_line = f"   ╰ 🔹 *Single Buff:* Grants `{primary_buff}`"
 
             item_lines.append(
                 f"**{idx}.** {s_emoji} **{name}** (`{slot}`{id_tag})\n{buff_line}"
             )
 
-        embed.add_field(
-            name=f"🎒 Matching 2026 Growtopia Items (Page {current_page} of {total_pages})",
-            value="\n\n".join(item_lines)[:4000],
-            inline=False,
-        )
+        desc_blocks.append("\n\n".join(item_lines))
 
-    # Slot breakdown summary pill row
+    full_description = "\n\n".join(desc_blocks)
+    if len(full_description) > 4000:
+        full_description = full_description[:3990] + "\n..."
+
+    embed = discord.Embed(
+        title=title[:256],
+        description=full_description,
+        color=0x00E676 if total_items > 0 else 0xFF5252,
+    )
+
     if matched_items:
         slot_counts: dict[str, int] = {}
         for it in matched_items:
             sl = it.get("slot", "Other")
             slot_counts[sl] = slot_counts.get(sl, 0) + 1
-        top_slots = sorted(slot_counts.items(), key=lambda x: -x[1])[:6]
+        top_slots = sorted(slot_counts.items(), key=lambda x: -x[1])[:7]
         slot_summary = " • ".join(
             f"{SLOT_EMOJIS.get(sl, '👚')} **{sl}:** `{cnt}`" for sl, cnt in top_slots
         )
         embed.add_field(
-            name="🧩 Available Clothing Slots for This Buff",
-            value=slot_summary,
+            name=f"🧩 Clothing Slots Breakdown (Page {current_page} of {total_pages})",
+            value=slot_summary[:1000],
             inline=False,
         )
 
@@ -383,9 +454,8 @@ class SlotFilterSelect(discord.ui.Select["FindItemsView"]):
 
         options: list[discord.SelectOption] = [
             discord.SelectOption(
-                label=f"All Clothing Slots ({len(matched_all_slots)} items)",
+                label=f"🌟 All Clothing Slots ({len(matched_all_slots)} items)",
                 value="ALL",
-                emoji="🌟",
                 default=(current_slot == "ALL"),
             )
         ]
@@ -394,11 +464,11 @@ class SlotFilterSelect(discord.ui.Select["FindItemsView"]):
         for sl in ordered_slots:
             cnt = slot_counts.get(sl, 0)
             if cnt > 0 or current_slot == sl:
+                em = SLOT_EMOJIS.get(sl, "👚")
                 options.append(
                     discord.SelectOption(
-                        label=f"{sl} Slot ({cnt} items)",
+                        label=f"{em} {sl} Slot ({cnt} items)",
                         value=sl,
-                        emoji=SLOT_EMOJIS.get(sl, "👚"),
                         default=(current_slot == sl),
                     )
                 )
@@ -687,12 +757,12 @@ class FindItemsCog(commands.Cog, name="Find Items by Buff"):
                     "Find every item that grants a specific buff, see **all additional buffs** on multi-mod items, "
                     "and filter by **Clothing Slot** (*Hat, Hair, Face, Chest, Shirt, Pants, Feet, Back/Wings, Hand, Artifact*).\n\n"
                     "**How to Use:**\n"
+                    "• **`/find-items buff:All Punch Buffs`** — View all Punch Damage, Range, Power & Pull items\n"
                     "• **`/find-items buff:Double Jump`** — Browse all Double Jump items & see extra buffs\n"
                     "• **`/find-items buff:Extra Blocks`** — Find farming & harvesting bonus items\n"
-                    "• **`/find-items buff:Build Range second_buff:Punch Range`** — Find items that grant **BOTH** buffs at once!\n"
-                    "• **`/find-items buff:Speedy slot:Feet`** — Filter directly for a specific clothing slot\n\n"
-                    f"📦 **Database Coverage:** `{db.get('total_buffs', 120)}+ Buff Categories` • "
-                    f"`{db.get('total_modded_items', 2000):,}+ Modded Items` (`{db.get('version', 'items.dat v27 - 2026')}`)"
+                    "• **`/find-items buff:Build Range second_buff:Punch Range`** — Find items that grant **BOTH** buffs at once!\n\n"
+                    f"📦 **Database Coverage:** `{db.get('total_buffs', 126)}+ Buff Categories` • "
+                    f"`{db.get('total_modded_items', 1646):,}+ Modded Items` (`{db.get('version', 'items.dat v27 - 2026')}`)"
                 ),
                 color=0x00E676,
             )
@@ -777,7 +847,7 @@ class FindItemsCog(commands.Cog, name="Find Items by Buff"):
         description="Find all 2026 Growtopia items with a specific buff (and see all additional buffs on each item)!",
     )
     @app_commands.describe(
-        buff="Primary buff to search for (e.g. Double Jump, Speedy, Punch Damage, Build Range, Extra Blocks)",
+        buff="Primary buff to search for (e.g. All Punch Buffs, Punch Damage, Punch Range, Double Jump, Speedy)",
         second_buff="Optional 2nd buff to find items that grant BOTH buffs at the same time",
         slot="Optional clothing slot filter (Hat, Hair, Face, Chest, Shirt, Pants, Feet, Back, Hand, Artifact)",
         multi_buff_only="Set True to only show items that possess 2 or more buffs",
@@ -792,7 +862,7 @@ class FindItemsCog(commands.Cog, name="Find Items by Buff"):
             app_commands.Choice(name="👕 Shirt", value="Shirt"),
             app_commands.Choice(name="👖 Pants", value="Pants"),
             app_commands.Choice(name="👟 Feet / Shoes", value="Feet"),
-            app_commands.Choice(name="🪽 Back / Wings", value="Back"),
+            app_commands.Choice(name="🦋 Back / Wings", value="Back"),
             app_commands.Choice(name="✋ Hand", value="Hand"),
             app_commands.Choice(name="🔮 Artifact / Ancestral", value="Artifact"),
         ]
@@ -817,53 +887,60 @@ class FindItemsCog(commands.Cog, name="Find Items by Buff"):
 
         await interaction.response.defer()
 
-        db = load_buff_db()
-        canonical_primary = resolve_buff_name(buff, db)
-        if not canonical_primary:
-            top_list = ", ".join(f"`{b}`" for b in POPULAR_BUFFS_ORDER[:12])
-            await interaction.followup.send(
-                f"❌ Could not find a buff matching **`{buff}`**!\n"
-                f"💡 **Popular Buffs:** {top_list}",
-                ephemeral=True,
-            )
-            return
-
-        canonical_second: str | None = None
-        if second_buff:
-            canonical_second = resolve_buff_name(second_buff, db)
-            if not canonical_second:
+        try:
+            db = load_buff_db()
+            canonical_primary = resolve_buff_name(buff, db)
+            if not canonical_primary:
+                top_list = ", ".join(f"`{b}`" for b in POPULAR_BUFFS_ORDER[:12])
                 await interaction.followup.send(
-                    f"❌ Could not find a second buff matching **`{second_buff}`**! Please choose from the autocomplete list.",
+                    f"❌ Could not find a buff matching **`{buff}`**!\n"
+                    f"💡 **Popular Buffs:** {top_list}",
                     ephemeral=True,
                 )
                 return
 
-        matched_items = filter_matching_items(
-            db=db,
-            primary_buff=canonical_primary,
-            second_buff=canonical_second,
-            slot_filter=slot,
-            multi_buff_only=multi_buff_only,
-        )
+            canonical_second: str | None = None
+            if second_buff:
+                canonical_second = resolve_buff_name(second_buff, db)
+                if not canonical_second:
+                    await interaction.followup.send(
+                        f"❌ Could not find a second buff matching **`{second_buff}`**! Please choose from the autocomplete list.",
+                        ephemeral=True,
+                    )
+                    return
 
-        embed = build_find_items_embed(
-            db=db,
-            primary_buff=canonical_primary,
-            second_buff=canonical_second,
-            slot_filter=slot,
-            multi_buff_only=multi_buff_only,
-            page=1,
-            matched_items=matched_items,
-        )
-        view = FindItemsView(
-            primary_buff=canonical_primary,
-            second_buff=canonical_second,
-            slot_filter=slot,
-            multi_buff_only=multi_buff_only,
-            page=1,
-        )
+            matched_items = filter_matching_items(
+                db=db,
+                primary_buff=canonical_primary,
+                second_buff=canonical_second,
+                slot_filter=slot,
+                multi_buff_only=multi_buff_only,
+            )
 
-        await interaction.followup.send(embed=embed, view=view)
+            embed = build_find_items_embed(
+                db=db,
+                primary_buff=canonical_primary,
+                second_buff=canonical_second,
+                slot_filter=slot,
+                multi_buff_only=multi_buff_only,
+                page=1,
+                matched_items=matched_items,
+            )
+            view = FindItemsView(
+                primary_buff=canonical_primary,
+                second_buff=canonical_second,
+                slot_filter=slot,
+                multi_buff_only=multi_buff_only,
+                page=1,
+            )
+
+            await interaction.followup.send(embed=embed, view=view)
+        except Exception as exc:
+            logger.exception("Error in /find-items for buff=%s: %s", buff, exc)
+            await interaction.followup.send(
+                f"❌ An unexpected error occurred while building results for **`{buff}`**: `{exc}`",
+                ephemeral=True,
+            )
 
 
 async def setup(bot: EventBot) -> None:
